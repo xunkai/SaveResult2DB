@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration>
+  <bookInfo>
+    <!--是否启用txt数据库-->
+    <enableTxt>true</enableTxt>
+    <!--数据库配置-->
+    <databaseConfig>
+      <host>202.114.65.49</host>
+      <portNo>1521</portNo>
+      <databaseName>RFID</databaseName>
+      <tableMainName>m_transform_tag</tableMainName>
+      <tableBorrowName>borrow_list</tableBorrowName>
+      <username>autopd</username>
+      <password>123456</password>
+    </databaseConfig>
+    <!--Txt配置-->
+    <databaseTxtConfig>
+      <txtPath>data\DB_m_transform_tag_2018-09-19.txt</txtPath>
+    </databaseTxtConfig>
+  </bookInfo>
+  <watchFilePath>\Tooker\result</watchFilePath>
+  <updateDatabase>true</updateDatabase>
+  <isFirst>true</isFirst>
+  <enableCheckLoss>false</enableCheckLoss>
+  <mailConfig>
+    <enableMail>false</enableMail>
+    <from>
+      <account name="TOOKER">scan@lib.whu.edu.cn</account>
+      <password>2018rfid</password>
+    </from>
+    <to>
+      <account id="1" name="李老师">liquan@lib.whu.edu.cn</account>
+      <account id="2" name="黄老师">hqh@lib.whu.edu.cn</account>
+      <account id="3" name="端老师">whduan@lib.whu.edu.cn</account>
+      <account id="4" name="老师">longquan@lib.whu.edu.cn</account>
+      <account id="5" name="黄老师">563584824@qq.com</account>
+      <account id="6" name="徐老师">8424796@qq.com</account>
+    </to>
+    <emailHost>lib.whu.edu.cn</emailHost>
+  </mailConfig>
+</configuration>
