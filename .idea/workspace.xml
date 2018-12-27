@@ -14,9 +14,8 @@
     <bookmark url="file://$PROJECT_DIR$/src/common/BookIndex.java" line="39" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f7ee60e5-ae7b-4566-989d-95d7803ac5d1" name="Default" comment="增加了对未读到图书的估计更新">
+    <list default="true" id="f7ee60e5-ae7b-4566-989d-95d7803ac5d1" name="Default" comment="增加了对未读到图书的估计更新，根据当次读到读书的首书列表来对未更新图书进行更新。">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/common/BookIndex.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/common/BookIndex.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/Res2Database.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/Res2Database.java" afterDir="false" />
     </list>
     <ignored path="$PROJECT_DIR$/out/" />
@@ -93,10 +92,10 @@
     <session id="1103374955">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="1" />
+          <entry key="project.closed" value="2" />
           <entry key="project.open.time.10" value="1" />
-          <entry key="project.open.time.11" value="1" />
-          <entry key="project.opened" value="2" />
+          <entry key="project.open.time.11" value="2" />
+          <entry key="project.opened" value="3" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
@@ -116,14 +115,14 @@
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
           <entry key="gitignore" value="8" />
-          <entry key="java" value="431" />
-          <entry key="txt" value="49" />
+          <entry key="java" value="1434" />
+          <entry key="txt" value="80" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="JAVA" value="431" />
-          <entry key="PLAIN_TEXT" value="57" />
+          <entry key="JAVA" value="1434" />
+          <entry key="PLAIN_TEXT" value="88" />
         </counts>
       </usages-collector>
     </session>
@@ -133,8 +132,15 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main/Res2Database.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="224">
-              <caret line="14" column="27" lean-forward="true" selection-start-line="14" selection-start-column="27" selection-end-line="14" selection-end-column="27" />
+            <state relative-caret-position="242">
+              <caret line="790" column="18" selection-start-line="790" selection-start-column="18" selection-end-line="790" selection-end-column="18" />
+              <folding>
+                <element signature="imports" expanded="true" />
+                <element signature="e#5423#7578#0" expanded="true" />
+                <element signature="e#9212#10417#0" expanded="true" />
+                <element signature="e#10422#10905#0" expanded="true" />
+                <element signature="e#11003#16303#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -142,7 +148,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/common/BookIndex.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="162">
+            <state relative-caret-position="864">
               <caret line="59" column="30" selection-start-line="59" selection-start-column="22" selection-end-line="59" selection-end-column="30" />
               <folding>
                 <element signature="method#compareTo#0;class#BookIndex#0" />
@@ -201,7 +207,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/WatchFilePath.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="98">
+            <state relative-caret-position="2144">
               <caret line="147" column="64" selection-start-line="147" selection-start-column="64" selection-end-line="147" selection-end-column="64" />
               <folding>
                 <element signature="imports" expanded="true" />
@@ -251,7 +257,6 @@
       <find>Status</find>
       <find>assert</find>
       <find>数据</find>
-      <find>IQ624</find>
       <find>UPDATE</find>
       <find>非</find>
       <find>丢失</find>
@@ -260,18 +265,24 @@
       <find>FileSystemView.getFileSystemView().getHomeDirectory().getPath()</find>
       <find>Database</find>
       <find>Database f</find>
+      <find>IQ624</find>
     </findStrings>
     <replaceStrings>
       <replace>LOGGER.error(e.getMessage());</replace>
       <replace>,</replace>
       <replace>,\n</replace>
-      <replace>Wing</replace>
       <replace>getTrace(e)</replace>
       <replace>(e)</replace>
       <replace>Config.DESKTOP_PATH</replace>
+      <replace>Wing</replace>
     </replaceStrings>
   </component>
   <component name="Git.Settings">
+    <option name="PREVIOUS_COMMIT_AUTHORS">
+      <list>
+        <option value="Wing" />
+      </list>
+    </option>
     <option name="ROOT_SYNC" value="DONT_SYNC" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -363,8 +374,8 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="PackagesPane" />
       <pane id="Scope" />
+      <pane id="PackagesPane" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -393,7 +404,7 @@
     <property name="SearchEverywhereHistoryKey" value="Tem&#9;ACTION&#9;InsertLiveTemplate&#10;git&#9;ACTION&#9;Github.Share&#10;javadoc&#9;ACTION&#9;GenerateJavadoc&#10;encoding&#9;ACTION&#9;ChangeFileEncodingAction" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
-    <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1545913242219" />
+    <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1545918918691" />
     <property name="com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary" value="JUnit5" />
     <property name="create.test.in.the.same.root" value="true" />
     <property name="last.edited.regexp" value="" />
@@ -402,7 +413,7 @@
     <property name="project.structure.proportion" value="0.15" />
     <property name="project.structure.side.proportion" value="0.2" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
-    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
+    <property name="settings.editor.selected.configurable" value="editing.templates" />
   </component>
   <component name="RecentsManager">
     <key name="CreateTestDialog.RecentsKey">
@@ -644,7 +655,14 @@
       <option name="project" value="LOCAL" />
       <updated>1545813386841</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="增加了对未读到图书的估计更新，根据当次读到读书的首书列表来对未更新图书进行更新。">
+      <created>1545913382657</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1545913382657</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
@@ -663,7 +681,7 @@
     <frame x="-7" y="-7" width="1295" height="695" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.24171382" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.24575587" />
       <window_info id="Structure" order="1" weight="0.25" />
       <window_info id="Capture Tool" order="2" />
       <window_info id="Designer" order="3" />
@@ -673,8 +691,8 @@
       <window_info anchor="bottom" id="Jindent" order="0" weight="0.32979852" />
       <window_info anchor="bottom" id="Dependency Viewer" order="1" weight="0.32979852" />
       <window_info anchor="bottom" id="Message" order="2" />
-      <window_info anchor="bottom" id="Find" order="3" weight="0.32919255" />
-      <window_info anchor="bottom" id="Run" order="4" sideWeight="0.49151173" visible="true" weight="0.37918216" />
+      <window_info anchor="bottom" id="Find" order="3" weight="0.32899627" />
+      <window_info anchor="bottom" id="Run" order="4" sideWeight="0.49151173" weight="0.20817845" />
       <window_info anchor="bottom" id="Debug" order="5" sideWeight="0.49555376" weight="0.47124305" />
       <window_info anchor="bottom" id="Cvs" order="6" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="7" weight="0.4" />
@@ -754,14 +772,15 @@
     <MESSAGE value="add lib" />
     <MESSAGE value="add .idea" />
     <MESSAGE value="增加了对未读到图书的估计更新" />
-    <option name="LAST_COMMIT_MESSAGE" value="增加了对未读到图书的估计更新" />
+    <MESSAGE value="增加了对未读到图书的估计更新，根据当次读到读书的首书列表来对未更新图书进行更新。" />
+    <option name="LAST_COMMIT_MESSAGE" value="增加了对未读到图书的估计更新，根据当次读到读书的首书列表来对未更新图书进行更新。" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/main/Res2Database.java</url>
-          <line>811</line>
+          <line>850</line>
           <properties />
           <option name="timeStamp" value="1" />
         </line-breakpoint>
@@ -952,6 +971,39 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/log4j.properties">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="224">
+          <caret line="14" column="32" selection-start-line="14" selection-start-column="32" selection-end-line="14" selection-end-column="32" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/Res2Database.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="242">
+          <caret line="790" column="18" selection-start-line="790" selection-start-column="18" selection-end-line="790" selection-end-column="18" />
+          <folding>
+            <element signature="imports" expanded="true" />
+            <element signature="e#5423#7578#0" expanded="true" />
+            <element signature="e#9212#10417#0" expanded="true" />
+            <element signature="e#10422#10905#0" expanded="true" />
+            <element signature="e#11003#16303#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/common/BookIndex.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="864">
+          <caret line="59" column="30" selection-start-line="59" selection-start-column="22" selection-end-line="59" selection-end-column="30" />
+          <folding>
+            <element signature="method#compareTo#0;class#BookIndex#0" />
+            <element signature="class#ClassNo#0;class#BookIndex#0" />
+            <element signature="class#VolumeOrYear#0;class#BookIndex#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/utils/Mail.java">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="3408">
@@ -989,10 +1041,14 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/log4j.properties">
+    <entry file="file://$PROJECT_DIR$/src/main/WatchFilePath.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="224">
-          <caret line="14" column="32" selection-start-line="14" selection-start-column="32" selection-end-line="14" selection-end-column="32" />
+        <state relative-caret-position="2144">
+          <caret line="147" column="64" selection-start-line="147" selection-start-column="64" selection-end-line="147" selection-end-column="64" />
+          <folding>
+            <element signature="imports" expanded="true" />
+            <element signature="method#WatchFilePath#0;class#WatchFilePath#0" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -1003,36 +1059,6 @@
           <folding>
             <element signature="method#deleteExpiredFile#0;class#FileUtil#0" />
           </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/common/BookIndex.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="162">
-          <caret line="59" column="30" selection-start-line="59" selection-start-column="22" selection-end-line="59" selection-end-column="30" />
-          <folding>
-            <element signature="method#compareTo#0;class#BookIndex#0" />
-            <element signature="class#ClassNo#0;class#BookIndex#0" />
-            <element signature="class#VolumeOrYear#0;class#BookIndex#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/WatchFilePath.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="98">
-          <caret line="147" column="64" selection-start-line="147" selection-start-column="64" selection-end-line="147" selection-end-column="64" />
-          <folding>
-            <element signature="imports" expanded="true" />
-            <element signature="method#WatchFilePath#0;class#WatchFilePath#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/Res2Database.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="224">
-          <caret line="14" column="27" lean-forward="true" selection-start-line="14" selection-start-column="27" selection-end-line="14" selection-end-column="27" />
         </state>
       </provider>
     </entry>

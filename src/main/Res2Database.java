@@ -56,7 +56,7 @@ public class Res2Database {
     /**
      * 0 为文件读取,1为数据库
      */
-    private static int FLAG = 1;
+    private static int ENABLE_DATABASE = 1;
     /**
      * 数据库ip
      **/
@@ -185,6 +185,7 @@ public class Res2Database {
 
     private static final BookIndex[] FLOOR_INDEX = {new BookIndex("A"), new BookIndex("F"), new BookIndex("I"), new BookIndex("N")};
 
+    private static final String[] FLOOR_STR = {"A-E","F-H","I-M","N-Z"};
     /**
      * 当前楼层
      */
@@ -283,11 +284,10 @@ public class Res2Database {
         } else {
             CHECK_LOSS = false;
         }
-        if (FLAG == 0) {
-            getResInfoFromTXT();
-        } else {
-            getResInfo();
-        }
+            processRes();
+//        } else {
+//            getResInfo();
+//        }
         //生成报表
         if (CHECK_LOSS) {
             generateLossReport();
@@ -315,7 +315,7 @@ public class Res2Database {
      */
     private void initFromXml() {
         DB_TXT_PATH = Config.DB_TXT_PATH;
-        FLAG = Config.FLAG;
+        ENABLE_DATABASE = Config.FLAG;
         HOST = Config.HOST;
         PORT_NO = Config.PORT_NO;
         DB_MAIN_NAME = Config.DB_NAME;
@@ -331,8 +331,7 @@ public class Res2Database {
     /**
      * 重置楼层：FLOOR的丢失状态为丢失
      *
-     * @return a
-     * @author IQ624
+     * @author Wing
      * @date 2018/12/5 20:26
      */
     private void resetDatabaseLoss() {
@@ -358,21 +357,64 @@ public class Res2Database {
     }
 
     /**
-     * 使用TXT数据库获取图书信息
+     * 从数据库中获取当前楼层图书信息
+     *
+     * @param bookInfos 图书信息保存的Map
      */
-    private void getResInfoFromTXT() {
+    private void getAllBookInfoFromDB(Map<String, String[]> bookInfos) {
+        String sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
+                DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
+                " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^["+FLOOR_STR[FLOOR-2]+"]')";
+        LOGGER.info("获取A区"+FLOOR+"楼图书信息...");
+        getDBConnection();
+        createStatement();
+        try {
+            resultSet = statement.executeQuery(sql);
+            while (resultSet.next()) {
+                String tagID = resultSet.getString("TAG_ID");
+                String bookID = resultSet.getString("BOOK_ID");
+                String bookIndex = resultSet.getString("BOOK_INDEX");
+                String bookName = resultSet.getString("BOOK_NAME");
+                String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
+                String[] tmp = {bookID,bookIndex,currentLibrary,bookName};
+                bookInfos.put(tagID,tmp);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        LOGGER.info("获取A区"+FLOOR+"楼图书完毕，图书共"+bookInfos.size()+"册");
+    }
+
+    /**
+     * 从TXT中获取所有图书信息
+     * @param bookInfos 图书信息保存的Map
+     */
+    private void getAllBookInfoFromTxt(Map<String,String[]> bookInfos){
         //读取TXT中的图书信息
         LOGGER.info("读取TXT中的图书信息...");
         List<String> txtInfos = readFileByLine(DB_TXT_PATH);
-        Map<String, String[]> bookInfosTxt = new TreeMap<>();
         for (String data : txtInfos) {
             String[] infos = data.split("\\|");
             String tagID = infos[0];
-            String[] bookInfos = Arrays.copyOfRange(infos, 1, 5);
-            bookInfosTxt.put(tagID, bookInfos);
+            String[] tmp = Arrays.copyOfRange(infos, 1, 5);
+            bookInfos.put(tagID, tmp);
         }
         txtInfos.clear();
         LOGGER.info("读取成功");
+    }
+    
+    /**
+     * 处理res文件信息
+     */
+    private void processRes() {
+
+        Map<String, String[]> bookInfosTxt = new TreeMap<>();
+        if(ENABLE_DATABASE == 0){
+            getAllBookInfoFromTxt(bookInfosTxt);
+        }
+        else {
+            getAllBookInfoFromDB(bookInfosTxt);
+        }
         LOGGER.info("读取res文件...");
         bookMap = new TreeMap<>();
         List<String> result = readFileByLine(resPath);
@@ -381,7 +423,7 @@ public class Res2Database {
         String[] resIn;
 
         int i = 0;
-        int countRC = 0;
+        int countRC = 0,countQuery=0;
         LOGGER.info("连接数据库...");
         getDBConnection();
         LOGGER.info("连接成功...");
@@ -416,15 +458,20 @@ public class Res2Database {
                 System.arraycopy(resIn, 1, bookInfos, BookFieldName.AREANO.getIndex(), FIELD_NUM - 1);
                 String[] tmp = bookInfosTxt.get(tagID);
                 if (tmp == null) {
-                    //数据库无此书
-                    countNotInDB++;
-                    LOGGER.warn("数据库未找到TagID=" + tagID + "的书");
-                    bookInfos[0] = "数据库未找到";
-                    bookInfos[1] = "";
-                    bookInfos[2] = "";
-                    bookMap.put(tagID, bookInfos);
-                    tagAbnormalBookList.add(tagID);
-                    continue;
+                    //WL30无此书,查询所有库
+//                    tmp = getBookInfo(tagID);
+                    tmp = new String[4];
+                    tmp[0] = null;
+                    String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
+                            "" + "" + "= '" + tagID + "'";
+                    resultSet = statement.executeQuery(sql);
+                    if (resultSet.next()) {
+                        tmp[0] = resultSet.getString(BookFieldName.BOOK_ID.getName());
+                        tmp[1] = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
+                        tmp[3] = resultSet.getString(BookFieldName.BOOK_NAME.getName());
+                        tmp[2] = resultSet.getString("CURRENT_LIBRARY");
+                    }
+                    countQuery++;
                 }
                 bookInfos[0] = tmp[0];
                 bookInfos[1] = tmp[1];
@@ -443,23 +490,16 @@ public class Res2Database {
                 bookMap.put(tagID, bookInfos);
                 //也需要更新非本层图书的数据库信息
                 if (lossMap.containsKey(tagID) || BookIndex.getFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]) != FLOOR) {
-//                    BookInfo bookInfo = new BookInfo(tagID, tmp[0], tmp[1], tmp[2]);
-//                    lossList.remove(bookInfo);
-//                    lossSet.remove(tmp[0]);
                     lossMap.remove(tagID);
                     //更新丢失列表
                     String sql = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET IS_LOSS=1 WHERE TAG_ID = '" + tagID + "'";
                     statement.executeQuery(sql);
                 }
-
-//                if(Objects.equals("102100405958", bookInfos[BookFieldName.BOOK_ID.getIndex()])){
-//                    System.out.println("");
-//                }
                 //错误馆藏地的图书
                 if (tmp[2] == null) {
                     System.out.println("TagID=" + tagID + "的书,CURRENT_LIBRARY为空");
                 }
-                if (!tmp[2].equals("WL30")) {
+                else if (!tmp[2].equals("WL30")) {
                     errorLibBookMap.put(tagID, tmp[2]);
                 }
                 //借出预约列表
@@ -479,7 +519,7 @@ public class Res2Database {
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
-        LOGGER.info("有" + countRC + "个层架标;" + "有" + countNotInDB + "个EPC不在数据库中;" + countSuccess + "本书处理成功！");
+        LOGGER.info("额外查询数据库"+countQuery+"次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;" + countSuccess + "本书处理成功！");
         bookInfosTxt.clear();
         sortBooks();
         getFirstBooks();
@@ -749,7 +789,6 @@ public class Res2Database {
 
     /**
      * 获取初始位置未更新列表
-     * <p>
      *
      * @author Wing
      * @date 2018/12/6 20:26
@@ -771,7 +810,7 @@ public class Res2Database {
             while (resultSet.next()) {
                 String tagID = resultSet.getString("TAG_ID");
                 String bookIndex = resultSet.getString("BOOK_INDEX");
-                allToBeUpdatedMap.put(tagID,bookIndex);
+                allToBeUpdatedMap.put(tagID, bookIndex);
             }
             statement.close();
             connect.close();
@@ -915,7 +954,7 @@ public class Res2Database {
             }
         }
         int countUpdate = 0;
-        for(Map.Entry<String,String> entry:allToBeUpdatedMap.entrySet()){
+        for (Map.Entry<String, String> entry : allToBeUpdatedMap.entrySet()) {
             String tagID = entry.getKey();
             String bookIndex = entry.getValue();
             //图书在该层，且图书无初始位置
@@ -936,7 +975,7 @@ public class Res2Database {
 
         closeStatement();
         closeDBConnection();
-        LOGGER.info("数据库更新完成!图书初始位置更新" + countUpdated + "册，估计更新"+countUpdate+"册");
+        LOGGER.info("数据库更新完成!图书初始位置更新" + countUpdated + "册，估计更新" + countUpdate + "册");
         Config.MAIL.sendEmail("A" + FLOOR + ",Database finishes update", "数据库更新已完成");
     }
 
@@ -946,25 +985,26 @@ public class Res2Database {
      * @param tagID EPC号
      * @return 书ID 书索引号 书名
      */
-    private String getBookInfo(String tagID) {
-        String bookID = "", bookIndex = "", bookName = "";
+    private String[] getBookInfo(String tagID) {
+        String bookID = null, bookIndex = "", bookName = "", currentLibrary="";
         getDBConnection();
         try {
             statement = connect.createStatement();
-            String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
+            String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
                     "" + "" + "= '" + tagID + "'";
             resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
+            if (resultSet.next()) {
                 bookID = resultSet.getString(BookFieldName.BOOK_ID.getName());
                 bookIndex = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
                 bookName = resultSet.getString(BookFieldName.BOOK_NAME.getName());
+                currentLibrary = resultSet.getString("CURRENT_LIBRARY");
             }
             statement.close();
             connect.close();
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
-        return bookID + " " + bookIndex + " " + bookName;
+        return new String[]{bookID,bookIndex,currentLibrary,bookName};
     }
 
     /**
