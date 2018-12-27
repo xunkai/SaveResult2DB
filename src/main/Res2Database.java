@@ -155,9 +155,9 @@ public class Res2Database {
      */
     private Map<String, String> allStatusAbnormalBookMap;
     /**
-     * 所有状态异常图书，存储的是tagID
+     * 所有初始状态图书，存储的是tagID, bookIndex
      */
-    private List<String> allToBeUpdatedList;
+    private Map<String, String> allToBeUpdatedMap;
     /**
      * 书的集合
      */
@@ -251,7 +251,7 @@ public class Res2Database {
         tagAbnormalBookList = new ArrayList<>();
         loanBookList = new ArrayList<>();
         holdBookList = new ArrayList<>();
-        allToBeUpdatedList = new ArrayList<>();
+        allToBeUpdatedMap = new HashMap<>();
         allStatusAbnormalBookMap = new HashMap<>();
         allLoanBookMap = new HashMap<>();
         allHoldBookMap = new HashMap<>();
@@ -550,7 +550,7 @@ public class Res2Database {
                         continue;
                     }
                     bookMap.put(tagID, bookInfos);
-                    if (lossMap.containsKey(tagID)|| BookIndex.getFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]) != FLOOR) {
+                    if (lossMap.containsKey(tagID) || BookIndex.getFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]) != FLOOR) {
 //                        BookInfo bookInfo = new BookInfo(tagID, bookInfos[0], bookInfos[1], bookInfos[2]);
 //                        lossList.remove(bookInfo);
 //                        lossSet.remove(bookInfos[0]);
@@ -764,13 +764,14 @@ public class Res2Database {
             if (statement == null) {
                 LOGGER.error("statement创建失败！");
             }
-            String sql = "SELECT TAG_ID" +
+            String sql = "SELECT TAG_ID,BOOK_INDEX" +
                     " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
                     " WHERE CURRENT_LIBRARY= 'WL30' and BOOK_PLACE IS NULL";
             resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
                 String tagID = resultSet.getString("TAG_ID");
-                allToBeUpdatedList.add(tagID);
+                String bookIndex = resultSet.getString("BOOK_INDEX");
+                allToBeUpdatedMap.put(tagID,bookIndex);
             }
             statement.close();
             connect.close();
@@ -778,7 +779,7 @@ public class Res2Database {
             LOGGER.error(getTrace(e));
         }
         LOGGER.info("获取初始位置未更新列表");
-        LOGGER.info("初始位置未更新图书共有" + allToBeUpdatedList.size() + "册.");
+        LOGGER.info("初始位置未更新图书共有" + allToBeUpdatedMap.size() + "册.");
     }
 
     /**
@@ -839,7 +840,6 @@ public class Res2Database {
      * 将位置信息更改写回数据库
      */
     private void write2DB() {
-
         LOGGER.info("将更改写回数据库");
         LOGGER.info("连接数据库...");
         int i = 0, countUpdated = 0;
@@ -857,7 +857,7 @@ public class Res2Database {
                     "BOOK_ORDER_NO" + "='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
                     "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
 //            LOGGER.info(sql);
-            if (IS_FIRST || allToBeUpdatedList.contains(tagID)) {
+            if (IS_FIRST || allToBeUpdatedMap.containsKey(tagID)) {
                 String sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
                         "book_place='" + checkPlace + "', " +
                         "BOOK_ORDER_NO='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
@@ -914,9 +914,29 @@ public class Res2Database {
                 LOGGER.info("已更新" + i);
             }
         }
+        int countUpdate = 0;
+        for(Map.Entry<String,String> entry:allToBeUpdatedMap.entrySet()){
+            String tagID = entry.getKey();
+            String bookIndex = entry.getValue();
+            //图书在该层，且图书无初始位置
+            if (BookIndex.getFloor(bookIndex) == FLOOR &&
+                    allToBeUpdatedMap.containsKey(tagID)) {
+                countUpdate++;
+                String bookPlace = getRightBookPlace(bookIndex);
+                String sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
+                        "book_place='" + bookPlace +
+                        "' WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
+                try {
+                    statement.executeUpdate(sqlBookPlace);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
         closeStatement();
         closeDBConnection();
-        LOGGER.info("数据库更新完成!图书初始位置更新" + countUpdated + "册");
+        LOGGER.info("数据库更新完成!图书初始位置更新" + countUpdated + "册，估计更新"+countUpdate+"册");
         Config.MAIL.sendEmail("A" + FLOOR + ",Database finishes update", "数据库更新已完成");
     }
 

@@ -46,6 +46,9 @@ public class BookIndex implements Comparable {
      * @param bookIndex 索引号字符串
      */
     public BookIndex(String bookIndex) {
+        if(bookIndex==null){
+            bookIndex="";
+        }
         lines = bookIndex.split("/");
         lineNum = lines.length;
         classNo = new ClassNo(lines[0]);
@@ -55,6 +58,9 @@ public class BookIndex implements Comparable {
     }
 
     public static int getFloor(String bookIndex) {
+        if(bookIndex == null){
+            return 0;
+        }
         int floor = 0;
         for (int i = 0; i < FLOOR_BOOK_INDEX.length; i++) {
             String regex = "^[" + FLOOR_BOOK_INDEX[i] + "].*";
@@ -534,4 +540,3 @@ public class BookIndex implements Comparable {
 }
 
 
-//~ Formatted by Jindent --- http://www.jindent.com
