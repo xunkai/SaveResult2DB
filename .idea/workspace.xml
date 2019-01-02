@@ -6,7 +6,7 @@
   </component>
   <component name="ArtifactsWorkspaceSettings">
     <artifacts-to-build>
-      <artifact name="SaveResult2DB:jar" />
+      <artifact name="SaveResult2DB" />
     </artifacts-to-build>
   </component>
   <component name="BookmarkManager">
@@ -14,9 +14,10 @@
     <bookmark url="file://$PROJECT_DIR$/src/common/BookIndex.java" line="39" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f7ee60e5-ae7b-4566-989d-95d7803ac5d1" name="Default" comment="增加了对未读到图书的估计更新，根据当次读到读书的首书列表来对未更新图书进行更新。">
+    <list default="true" id="f7ee60e5-ae7b-4566-989d-95d7803ac5d1" name="Default" comment="实现了对数据库的一次读取，减少数据库查询次数，大大减少程序运行时间">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/Res2Database.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/Res2Database.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/WatchFilePath.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/WatchFilePath.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/Mail.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/Mail.java" afterDir="false" />
     </list>
     <ignored path="$PROJECT_DIR$/out/" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -92,22 +93,26 @@
     <session id="1103374955">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="2" />
+          <entry key="project.closed" value="4" />
           <entry key="project.open.time.10" value="1" />
           <entry key="project.open.time.11" value="2" />
-          <entry key="project.opened" value="3" />
+          <entry key="project.open.time.12" value="1" />
+          <entry key="project.open.time.2" value="1" />
+          <entry key="project.opened" value="5" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
+          <entry key="class" value="1" />
           <entry key="gitignore" value="2" />
-          <entry key="java" value="1" />
+          <entry key="java" value="2" />
           <entry key="xml" value="2" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="JAVA" value="1" />
+          <entry key="CLASS" value="1" />
+          <entry key="JAVA" value="2" />
           <entry key="PLAIN_TEXT" value="2" />
           <entry key="XML" value="2" />
         </counts>
@@ -115,31 +120,28 @@
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
           <entry key="gitignore" value="8" />
-          <entry key="java" value="1434" />
-          <entry key="txt" value="80" />
+          <entry key="java" value="1439" />
+          <entry key="txt" value="117" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="JAVA" value="1434" />
-          <entry key="PLAIN_TEXT" value="88" />
+          <entry key="JAVA" value="1439" />
+          <entry key="PLAIN_TEXT" value="125" />
         </counts>
       </usages-collector>
     </session>
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/Res2Database.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="242">
-              <caret line="790" column="18" selection-start-line="790" selection-start-column="18" selection-end-line="790" selection-end-column="18" />
+            <state relative-caret-position="146">
+              <caret line="842" column="50" selection-start-line="842" selection-start-column="46" selection-end-line="842" selection-end-column="50" />
               <folding>
                 <element signature="imports" expanded="true" />
-                <element signature="e#5423#7578#0" expanded="true" />
-                <element signature="e#9212#10417#0" expanded="true" />
-                <element signature="e#10422#10905#0" expanded="true" />
-                <element signature="e#11003#16303#0" expanded="true" />
+                <element signature="e#38856#54363#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -148,10 +150,9 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/common/BookIndex.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="864">
+            <state relative-caret-position="704">
               <caret line="59" column="30" selection-start-line="59" selection-start-column="22" selection-end-line="59" selection-end-column="30" />
               <folding>
-                <element signature="method#compareTo#0;class#BookIndex#0" />
                 <element signature="class#ClassNo#0;class#BookIndex#0" />
                 <element signature="class#VolumeOrYear#0;class#BookIndex#0" />
               </folding>
@@ -159,13 +160,16 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/utils/Mail.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="3408">
-              <caret line="263" column="51" selection-start-line="263" selection-start-column="43" selection-end-line="263" selection-end-column="51" />
+            <state relative-caret-position="176">
+              <caret line="11" lean-forward="true" selection-start-line="11" selection-end-line="11" />
               <folding>
-                <element signature="method#sendEmail#0;class#Mail#0" />
+                <element signature="imports" expanded="true" />
+                <element signature="method#Mail#0;class#Mail#0" expanded="true" />
+                <element signature="method#sendEmail#1;class#Mail#0" expanded="true" />
+                <element signature="method#main#0;class#Mail#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -174,7 +178,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/utils/MyZip.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="464">
+            <state relative-caret-position="368">
               <caret line="33" column="25" selection-start-line="33" selection-start-column="25" selection-end-line="33" selection-end-column="25" />
             </state>
           </provider>
@@ -183,20 +187,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/utils/Config.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1184">
-              <caret line="86" column="33" selection-start-line="86" selection-start-column="33" selection-end-line="86" selection-end-column="33" />
-              <folding>
-                <element signature="imports" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/utils/MyLogger.java">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="288">
-              <caret line="21" column="19" selection-start-line="21" selection-start-column="19" selection-end-line="21" selection-end-column="19" />
+            <state relative-caret-position="125">
+              <caret line="149" column="21" selection-start-line="149" selection-start-column="21" selection-end-line="149" selection-end-column="21" />
               <folding>
                 <element signature="imports" expanded="true" />
               </folding>
@@ -207,11 +199,10 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/WatchFilePath.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2144">
-              <caret line="147" column="64" selection-start-line="147" selection-start-column="64" selection-end-line="147" selection-end-column="64" />
+            <state relative-caret-position="56">
+              <caret line="132" column="33" selection-start-line="132" selection-start-column="33" selection-end-line="132" selection-end-column="33" />
               <folding>
                 <element signature="imports" expanded="true" />
-                <element signature="method#WatchFilePath#0;class#WatchFilePath#0" />
               </folding>
             </state>
           </provider>
@@ -220,11 +211,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/utils/FileUtil.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1872">
+            <state relative-caret-position="848">
               <caret line="123" column="29" selection-start-line="123" selection-start-column="29" selection-end-line="123" selection-end-column="29" />
-              <folding>
-                <element signature="method#deleteExpiredFile#0;class#FileUtil#0" />
-              </folding>
             </state>
           </provider>
         </entry>
@@ -318,12 +306,12 @@
         <option value="$PROJECT_DIR$/src/utils/MyLogger.java" />
         <option value="$PROJECT_DIR$/src/log4j.properties" />
         <option value="$PROJECT_DIR$/src/utils/FileUtil.java" />
-        <option value="$PROJECT_DIR$/src/utils/Mail.java" />
-        <option value="$PROJECT_DIR$/src/main/WatchFilePath.java" />
         <option value="$PROJECT_DIR$/src/utils/Config.java" />
         <option value="$PROJECT_DIR$/.gitignore" />
         <option value="$PROJECT_DIR$/src/common/BookIndex.java" />
         <option value="$PROJECT_DIR$/src/main/Res2Database.java" />
+        <option value="$PROJECT_DIR$/src/main/WatchFilePath.java" />
+        <option value="$PROJECT_DIR$/src/utils/Mail.java" />
       </list>
     </option>
   </component>
@@ -374,8 +362,8 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="PackagesPane" />
+      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -386,13 +374,16 @@
             <path>
               <item name="SaveResult2DB" type="b2602c69:ProjectViewProjectNode" />
               <item name="SaveResult2DB" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="lib" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="SaveResult2DB" type="b2602c69:ProjectViewProjectNode" />
               <item name="SaveResult2DB" type="462c0819:PsiDirectoryNode" />
               <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="common" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="SaveResult2DB" type="b2602c69:ProjectViewProjectNode" />
+              <item name="External Libraries" type="cb654da1:ExternalLibrariesNode" />
             </path>
           </expand>
           <select />
@@ -404,16 +395,16 @@
     <property name="SearchEverywhereHistoryKey" value="Tem&#9;ACTION&#9;InsertLiveTemplate&#10;git&#9;ACTION&#9;Github.Share&#10;javadoc&#9;ACTION&#9;GenerateJavadoc&#10;encoding&#9;ACTION&#9;ChangeFileEncodingAction" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
-    <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1545918918691" />
+    <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1546451189572" />
     <property name="com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary" value="JUnit5" />
     <property name="create.test.in.the.same.root" value="true" />
     <property name="last.edited.regexp" value="" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="project.structure.last.edited" value="Modules" />
+    <property name="project.structure.last.edited" value="Project" />
     <property name="project.structure.proportion" value="0.15" />
     <property name="project.structure.side.proportion" value="0.2" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
-    <property name="settings.editor.selected.configurable" value="editing.templates" />
+    <property name="settings.editor.selected.configurable" value="reference.projectsettings.compiler.javacompiler" />
   </component>
   <component name="RecentsManager">
     <key name="CreateTestDialog.RecentsKey">
@@ -662,7 +653,14 @@
       <option name="project" value="LOCAL" />
       <updated>1545913382657</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="实现了对数据库的一次读取，减少数据库查询次数，大大减少程序运行时间">
+      <created>1545928992053</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1545928992053</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
@@ -681,7 +679,7 @@
     <frame x="-7" y="-7" width="1295" height="695" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.24575587" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.25383994" />
       <window_info id="Structure" order="1" weight="0.25" />
       <window_info id="Capture Tool" order="2" />
       <window_info id="Designer" order="3" />
@@ -692,17 +690,17 @@
       <window_info anchor="bottom" id="Dependency Viewer" order="1" weight="0.32979852" />
       <window_info anchor="bottom" id="Message" order="2" />
       <window_info anchor="bottom" id="Find" order="3" weight="0.32899627" />
-      <window_info anchor="bottom" id="Run" order="4" sideWeight="0.49151173" weight="0.20817845" />
+      <window_info anchor="bottom" id="Run" order="4" sideWeight="0.49151173" weight="0.39033458" />
       <window_info anchor="bottom" id="Debug" order="5" sideWeight="0.49555376" weight="0.47124305" />
       <window_info anchor="bottom" id="Cvs" order="6" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="7" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="8" weight="0.32713756" />
-      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.50687146" side_tool="true" weight="0.32899627" />
+      <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.50444627" side_tool="true" visible="true" weight="0.35873607" />
       <window_info anchor="bottom" id="Inspection Results" order="10" weight="0.32979852" />
       <window_info anchor="bottom" id="FindBugs-IDEA" order="11" weight="0.32979852" />
       <window_info anchor="bottom" id="Version Control" order="12" show_stripe_button="false" sideWeight="0.49312854" weight="0.3283859" />
       <window_info anchor="bottom" id="Terminal" order="13" />
-      <window_info anchor="bottom" id="Messages" order="14" weight="0.35873607" />
+      <window_info active="true" anchor="bottom" id="Messages" order="14" sideWeight="0.49555376" visible="true" weight="0.35873607" />
       <window_info anchor="bottom" id="Database Changes" order="15" show_stripe_button="false" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
@@ -773,19 +771,8 @@
     <MESSAGE value="add .idea" />
     <MESSAGE value="增加了对未读到图书的估计更新" />
     <MESSAGE value="增加了对未读到图书的估计更新，根据当次读到读书的首书列表来对未更新图书进行更新。" />
-    <option name="LAST_COMMIT_MESSAGE" value="增加了对未读到图书的估计更新，根据当次读到读书的首书列表来对未更新图书进行更新。" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/main/Res2Database.java</url>
-          <line>850</line>
-          <properties />
-          <option name="timeStamp" value="1" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="实现了对数据库的一次读取，减少数据库查询次数，大大减少程序运行时间" />
+    <option name="LAST_COMMIT_MESSAGE" value="实现了对数据库的一次读取，减少数据库查询次数，大大减少程序运行时间" />
   </component>
   <component name="debuggerHistoryManager">
     <expressions id="watch">
@@ -797,8 +784,6 @@
     </expressions>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/Report_yyyy-MM-dd.log" />
-    <entry file="file://$PROJECT_DIR$/Report_2018-09-13-14-40.log" />
     <entry file="file://$PROJECT_DIR$/log/log-" />
     <entry file="file://$PROJECT_DIR$/log/log_2018-09-13_14-56.log" />
     <entry file="file://$PROJECT_DIR$/data/DB_m_transform_tag_2018-06-29.txt" />
@@ -980,54 +965,30 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main/Res2Database.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="242">
-          <caret line="790" column="18" selection-start-line="790" selection-start-column="18" selection-end-line="790" selection-end-column="18" />
+        <state relative-caret-position="146">
+          <caret line="842" column="50" selection-start-line="842" selection-start-column="46" selection-end-line="842" selection-end-column="50" />
           <folding>
             <element signature="imports" expanded="true" />
-            <element signature="e#5423#7578#0" expanded="true" />
-            <element signature="e#9212#10417#0" expanded="true" />
-            <element signature="e#10422#10905#0" expanded="true" />
-            <element signature="e#11003#16303#0" expanded="true" />
+            <element signature="e#38856#54363#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/common/BookIndex.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="864">
+        <state relative-caret-position="704">
           <caret line="59" column="30" selection-start-line="59" selection-start-column="22" selection-end-line="59" selection-end-column="30" />
           <folding>
-            <element signature="method#compareTo#0;class#BookIndex#0" />
             <element signature="class#ClassNo#0;class#BookIndex#0" />
             <element signature="class#VolumeOrYear#0;class#BookIndex#0" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/utils/Mail.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="3408">
-          <caret line="263" column="51" selection-start-line="263" selection-start-column="43" selection-end-line="263" selection-end-column="51" />
-          <folding>
-            <element signature="method#sendEmail#0;class#Mail#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/utils/MyZip.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="464">
+        <state relative-caret-position="368">
           <caret line="33" column="25" selection-start-line="33" selection-start-column="25" selection-end-line="33" selection-end-column="25" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/utils/Config.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1184">
-          <caret line="86" column="33" selection-start-line="86" selection-start-column="33" selection-end-line="86" selection-end-column="33" />
-          <folding>
-            <element signature="imports" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -1041,23 +1002,59 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/utils/FileUtil.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="848">
+          <caret line="123" column="29" selection-start-line="123" selection-start-column="29" selection-end-line="123" selection-end-column="29" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/WatchFilePath.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2144">
-          <caret line="147" column="64" selection-start-line="147" selection-start-column="64" selection-end-line="147" selection-end-column="64" />
+        <state relative-caret-position="56">
+          <caret line="132" column="33" selection-start-line="132" selection-start-column="33" selection-end-line="132" selection-end-column="33" />
           <folding>
             <element signature="imports" expanded="true" />
-            <element signature="method#WatchFilePath#0;class#WatchFilePath#0" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/utils/FileUtil.java">
+    <entry file="jar://C:/Program Files/Java/jdk-9.0.1/lib/src.zip!/java.activation/javax/activation/DataHandler.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1872">
-          <caret line="123" column="29" selection-start-line="123" selection-start-column="29" selection-end-line="123" selection-end-column="29" />
+        <state relative-caret-position="106">
+          <caret line="76" column="13" selection-start-line="76" selection-start-column="13" selection-end-line="76" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/out/production/SaveResult2DB/common/BookIndex.class">
+      <provider selected="true" editor-type-id="text-editor">
+        <state>
           <folding>
-            <element signature="method#deleteExpiredFile#0;class#FileUtil#0" />
+            <element signature="e#0#11794#0" expanded="true" />
+            <element signature="method#compareTo#0;class#AuthorNo#0;class#BookIndex#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/utils/Config.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="125">
+          <caret line="149" column="21" selection-start-line="149" selection-start-column="21" selection-end-line="149" selection-end-column="21" />
+          <folding>
+            <element signature="imports" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/utils/Mail.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="176">
+          <caret line="11" lean-forward="true" selection-start-line="11" selection-end-line="11" />
+          <folding>
+            <element signature="imports" expanded="true" />
+            <element signature="method#Mail#0;class#Mail#0" expanded="true" />
+            <element signature="method#sendEmail#1;class#Mail#0" expanded="true" />
+            <element signature="method#main#0;class#Mail#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -1068,11 +1065,12 @@
       <state key="ArtifactsStructureConfigurable.UI">
         <settings>
           <artifact-editor />
-          <last-edited>SaveResult2DB:jar</last-edited>
+          <last-edited>SaveResult2DB</last-edited>
           <splitter-proportions>
             <option name="proportions">
               <list>
                 <option value="0.2" />
+                <option value="0.5" />
               </list>
             </option>
           </splitter-proportions>

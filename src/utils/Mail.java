@@ -1,12 +1,8 @@
 package utils;
 
-import java.io.UnsupportedEncodingException;
-import java.net.SocketException;
 import java.util.*;
 import javax.activation.DataHandler;
 import javax.activation.FileDataSource;
-import javax.mail.MessagingException;
-import javax.mail.NoSuchProviderException;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.*;
