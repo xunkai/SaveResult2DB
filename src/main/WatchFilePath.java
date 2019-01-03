@@ -129,9 +129,9 @@ public class WatchFilePath {
      * @throws InterruptedException
      */
     public static void main(String[] args) throws IOException, InterruptedException {
-        String Version = "1.10";
+        String Version = "1.11";
         String Time = "2018/12/28 21:30";
-        String Update = "修复了数据库断开后重试时间过长的bug";
+        String Update = "忽略外文图书";
         LOGGER.info("Version: " + Version);
         LOGGER.info("Update at " + Time);
         LOGGER.info("Updating info " + Update);

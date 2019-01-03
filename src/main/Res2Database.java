@@ -277,8 +277,8 @@ public class Res2Database {
         }
         getAllLoanHoldList();
         getStatusAbnormalList();
-        if (getCurrentWeek() == Config.LOSS_RESET_WEEK) {
-            //重置前一天出丢失报表
+        if (getCurrentWeek() == Config.LOSS_RESET_WEEK||getCurrentWeek() == Config.LOSS_RESET_WEEK-1) {
+            //重置前两天出丢失报表
             CHECK_LOSS = true;
             getLossList();
         } else {
