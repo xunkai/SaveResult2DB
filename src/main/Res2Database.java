@@ -191,7 +191,7 @@ public class Res2Database {
      */
     private int FLOOR = 2;
 
-    private int countNotInDB = 0, countSuccess = 0, countLoss = 0,
+    private int countNotInDB = 0, countForeign = 0, countSuccess = 0, countLoss = 0,
             countErrLib = 0, countErr = 0, countLoan = 0, countHold = 0, countStatusAbn = 0;
 
 
@@ -487,6 +487,12 @@ public class Res2Database {
                     tagAbnormalBookList.add(tagID);
                     continue;
                 }
+                if(isForeignBook(bookInfos[1],bookInfos[2])){
+                    countForeign++;
+                    LOGGER.info("外文书："+bookInfos[2]);
+                    continue;
+                }
+
                 bookMap.put(tagID, bookInfos);
                 //也需要更新非本层图书的数据库信息
                 if (lossMap.containsKey(tagID) || BookIndex.getFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]) != FLOOR) {
@@ -519,7 +525,7 @@ public class Res2Database {
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
-        LOGGER.info("额外查询数据库"+countQuery+"次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;" + countSuccess + "本书处理成功！");
+        LOGGER.info("额外查询数据库"+countQuery+"次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;有"+countForeign+"外文书;" + countSuccess + "本书处理成功！");
         bookInfosTxt.clear();
         sortBooks();
         getFirstBooks();
@@ -872,7 +878,7 @@ public class Res2Database {
      * @return 是否是外文书
      */
     private boolean isForeignBook(String bookIndex, String bookName) {
-        return bookName != null && bookIndex != null && (bookIndex.endsWith("Y") || !containChinese(bookName));
+        return  (bookIndex != null && (bookIndex.endsWith("Y") )|| (bookName != null &&!containChinese(bookName)));
     }
 
     /**
@@ -1262,8 +1268,8 @@ public class Res2Database {
             //添加书本信息
             addBookToSheet(sheet, bookInfos, format);
             String str1 = "1";
-            if (str1.equals(bookInfos[BookFieldName.ERRORFLAG.getIndex()])) {
-                //将错架图书加入错架列表
+            if (str1.equals(bookInfos[BookFieldName.ERRORFLAG.getIndex()])||errorLibBookMap.containsKey(tagID)) {
+                //将错架图书和错误馆藏地图书加入错架列表
                 addBookToSheet(sheetErr, bookInfos, format);
                 String bookP = getRightBookPlace(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]);
                 if (bookP == null) {

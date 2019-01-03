@@ -159,7 +159,7 @@ public class WatchFilePath {
 //        Res2Database res2Database = new Res2Database(
 ////                修改这个
 ////                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
-//                "F:\\whu\\1\\result\\A5_2018-12-21_22-15-04_full.res");
+//                "F:\\whu\\2\\result\\A2_2019-01-02_22-15-03_full.res");
     }
 }
 
