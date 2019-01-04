@@ -185,7 +185,7 @@ public class Res2Database {
 
     private static final BookIndex[] FLOOR_INDEX = {new BookIndex("A"), new BookIndex("F"), new BookIndex("I"), new BookIndex("N")};
 
-    private static final String[] FLOOR_STR = {"A-E","F-H","I-M","N-Z"};
+    private static final String[] FLOOR_STR = {"A-E", "F-H", "I-M", "N-Z"};
     /**
      * 当前楼层
      */
@@ -277,14 +277,14 @@ public class Res2Database {
         }
         getAllLoanHoldList();
         getStatusAbnormalList();
-        if (getCurrentWeek() == Config.LOSS_RESET_WEEK||getCurrentWeek() == Config.LOSS_RESET_WEEK-1) {
+        getLossList();
+        if (getCurrentWeek() == Config.LOSS_RESET_WEEK || getCurrentWeek() == Config.LOSS_RESET_WEEK - 1) {
             //重置前两天出丢失报表
             CHECK_LOSS = true;
-            getLossList();
         } else {
             CHECK_LOSS = false;
         }
-            processRes();
+        processRes();
 //        } else {
 //            getResInfo();
 //        }
@@ -364,8 +364,8 @@ public class Res2Database {
     private void getAllBookInfoFromDB(Map<String, String[]> bookInfos) {
         String sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
                 DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
-                " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^["+FLOOR_STR[FLOOR-2]+"]')";
-        LOGGER.info("获取A区"+FLOOR+"楼图书信息...");
+                " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^[" + FLOOR_STR[FLOOR - 2] + "]')";
+        LOGGER.info("获取A区" + FLOOR + "楼图书信息...");
         getDBConnection();
         createStatement();
         try {
@@ -376,20 +376,21 @@ public class Res2Database {
                 String bookIndex = resultSet.getString("BOOK_INDEX");
                 String bookName = resultSet.getString("BOOK_NAME");
                 String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
-                String[] tmp = {bookID,bookIndex,currentLibrary,bookName};
-                bookInfos.put(tagID,tmp);
+                String[] tmp = {bookID, bookIndex, currentLibrary, bookName};
+                bookInfos.put(tagID, tmp);
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        LOGGER.info("获取A区"+FLOOR+"楼图书完毕，图书共"+bookInfos.size()+"册");
+        LOGGER.info("获取A区" + FLOOR + "楼图书完毕，图书共" + bookInfos.size() + "册");
     }
 
     /**
      * 从TXT中获取所有图书信息
+     *
      * @param bookInfos 图书信息保存的Map
      */
-    private void getAllBookInfoFromTxt(Map<String,String[]> bookInfos){
+    private void getAllBookInfoFromTxt(Map<String, String[]> bookInfos) {
         //读取TXT中的图书信息
         LOGGER.info("读取TXT中的图书信息...");
         List<String> txtInfos = readFileByLine(DB_TXT_PATH);
@@ -402,17 +403,16 @@ public class Res2Database {
         txtInfos.clear();
         LOGGER.info("读取成功");
     }
-    
+
     /**
      * 处理res文件信息
      */
     private void processRes() {
 
         Map<String, String[]> bookInfosTxt = new TreeMap<>();
-        if(ENABLE_DATABASE == 0){
+        if (ENABLE_DATABASE == 0) {
             getAllBookInfoFromTxt(bookInfosTxt);
-        }
-        else {
+        } else {
             getAllBookInfoFromDB(bookInfosTxt);
         }
         LOGGER.info("读取res文件...");
@@ -423,7 +423,7 @@ public class Res2Database {
         String[] resIn;
 
         int i = 0;
-        int countRC = 0,countQuery=0;
+        int countRC = 0, countQuery = 0;
         LOGGER.info("连接数据库...");
         getDBConnection();
         LOGGER.info("连接成功...");
@@ -487,9 +487,9 @@ public class Res2Database {
                     tagAbnormalBookList.add(tagID);
                     continue;
                 }
-                if(isForeignBook(bookInfos[1],bookInfos[2])){
+                if (isForeignBook(bookInfos[1], bookInfos[2])) {
                     countForeign++;
-                    LOGGER.info("外文书："+bookInfos[2]);
+                    LOGGER.info("外文书：" + bookInfos[2]);
                     continue;
                 }
 
@@ -504,8 +504,7 @@ public class Res2Database {
                 //错误馆藏地的图书
                 if (tmp[2] == null) {
                     System.out.println("TagID=" + tagID + "的书,CURRENT_LIBRARY为空");
-                }
-                else if (!tmp[2].equals("WL30")) {
+                } else if (!tmp[2].equals("WL30")) {
                     errorLibBookMap.put(tagID, tmp[2]);
                 }
                 //借出预约列表
@@ -525,7 +524,7 @@ public class Res2Database {
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
-        LOGGER.info("额外查询数据库"+countQuery+"次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;有"+countForeign+"外文书;" + countSuccess + "本书处理成功！");
+        LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
         bookInfosTxt.clear();
         sortBooks();
         getFirstBooks();
@@ -878,7 +877,7 @@ public class Res2Database {
      * @return 是否是外文书
      */
     private boolean isForeignBook(String bookIndex, String bookName) {
-        return  (bookIndex != null && (bookIndex.endsWith("Y") )|| (bookName != null &&!containChinese(bookName)));
+        return (bookIndex != null && (bookIndex.endsWith("Y")) || (bookName != null && !containChinese(bookName)));
     }
 
     /**
@@ -992,7 +991,7 @@ public class Res2Database {
      * @return 书ID 书索引号 书名
      */
     private String[] getBookInfo(String tagID) {
-        String bookID = null, bookIndex = "", bookName = "", currentLibrary="";
+        String bookID = null, bookIndex = "", bookName = "", currentLibrary = "";
         getDBConnection();
         try {
             statement = connect.createStatement();
@@ -1010,7 +1009,7 @@ public class Res2Database {
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
-        return new String[]{bookID,bookIndex,currentLibrary,bookName};
+        return new String[]{bookID, bookIndex, currentLibrary, bookName};
     }
 
     /**
@@ -1268,7 +1267,7 @@ public class Res2Database {
             //添加书本信息
             addBookToSheet(sheet, bookInfos, format);
             String str1 = "1";
-            if (str1.equals(bookInfos[BookFieldName.ERRORFLAG.getIndex()])||errorLibBookMap.containsKey(tagID)) {
+            if (str1.equals(bookInfos[BookFieldName.ERRORFLAG.getIndex()]) || errorLibBookMap.containsKey(tagID)) {
                 //将错架图书和错误馆藏地图书加入错架列表
                 addBookToSheet(sheetErr, bookInfos, format);
                 String bookP = getRightBookPlace(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]);
