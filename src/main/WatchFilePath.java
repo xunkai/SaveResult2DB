@@ -129,9 +129,9 @@ public class WatchFilePath {
      * @throws InterruptedException
      */
     public static void main(String[] args) throws IOException, InterruptedException {
-        String Version = "1.12";
-        String Time = "2019/1/3 20:30";
-        String Update = "重置丢失状态前一天出报表改为前两天出报表";
+        String Version = "1.13";
+        String Time = "2019/1/5 16:30";
+        String Update = "1.修复了重连数据库失败的BUG；2.增加了消息框提示处理结束";
         LOGGER.info("Version: " + Version);
         LOGGER.info("Update at " + Time);
         LOGGER.info("Updating info " + Update);
@@ -148,18 +148,18 @@ public class WatchFilePath {
         deleteFile(Config.DESKTOP_PATH+"\\Tooker\\Config_I&Q\\failed_res");
         deleteFile(Config.DESKTOP_PATH+"\\Tooker\\Config_I&Q\\lastdate.f");
 
-//        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
-//        File file = new File(filepath);
-//        if (!file.exists()) {
-//            file.mkdirs();
-//        }
-//        new WatchFilePath(Paths.get(filepath)).handleEvents();
+        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
+        File file = new File(filepath);
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+        new WatchFilePath(Paths.get(filepath)).handleEvents();
 
         //test
-        Res2Database res2Database = new Res2Database(
-//                修改这个
-//                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
-                "F:\\whu\\3\\result\\A5_2019-01-02_22-15-03_full.res");
+//        Res2Database res2Database = new Res2Database(
+////                修改这个
+////                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
+//                "F:\\whu\\1\\result\\A3_2019-01-04_22-28-18_full.res");
     }
 }
 

@@ -3,6 +3,7 @@ package main;
 import common.BookIndex;
 import common.BookInfo;
 import utils.Config;
+import utils.GUI;
 import utils.MyZip;
 
 import jxl.Workbook;
@@ -294,6 +295,7 @@ public class Res2Database {
         }
         generateReportTemp();
         zipSend();
+        GUI.showCustomDialog(null, null, "报表已生成，数据库更新中...");
         if (Config.UPDATE_DATABASE) {
             write2DB();
         }
@@ -301,6 +303,8 @@ public class Res2Database {
         if (getCurrentWeek() == Config.LOSS_RESET_WEEK) {
             resetDatabaseLoss();
         }
+
+        GUI.showCustomDialog(null, null, "数据库更新完毕");
     }
 
     /**
@@ -949,8 +953,6 @@ public class Res2Database {
             } catch (SQLException e) {
                 LOGGER.error(e.getMessage());
                 LOGGER.info("尝试重连");
-                closeStatement();
-                closeDBConnection();
                 getDBConnection();
                 createStatement();
             }
@@ -1665,7 +1667,9 @@ public class Res2Database {
 
     private void createStatement() {
         try {
-            statement.close();
+            if (connect.isClosed()) {
+                getDBConnection();
+            }
             statement = connect.createStatement();
         } catch (SQLException e) {
             LOGGER.error(e.getMessage());
@@ -1674,7 +1678,9 @@ public class Res2Database {
 
     private void closeStatement() {
         try {
-            statement.close();
+            if (!statement.isClosed()) {
+                statement.close();
+            }
         } catch (SQLException e) {
             LOGGER.error(e.getMessage());
         }
