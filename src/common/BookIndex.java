@@ -15,8 +15,10 @@ import static utils.FileUtil.writeFile;
  */
 public class BookIndex implements Comparable {
 
-
-    private static String[] FLOOR_BOOK_INDEX = {"A-E", "E-H", "I-M", "N-Z"};
+    /**
+     * 楼层起止索书号，分别对应2、3、4、5层
+     */
+    public static String[] FLOOR_BOOK_INDEX = {"A-E", "E-H", "I-M", "N-Z"};
     /**
      * 除去类别号和著者号的其他信息起始值，其值为{@value}
      */

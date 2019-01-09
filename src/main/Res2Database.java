@@ -82,7 +82,6 @@ public class Res2Database {
      * 借出表名
      */
     private static String TABLE_BORROW_NAME = "borrow_list";
-
     /**
      * 状态表名，保存书籍状态信息
      */
@@ -135,8 +134,6 @@ public class Res2Database {
     /**
      * 丢失书籍集合
      */
-//    private HashSet<String> lossSet;
-//    private ArrayList<BookInfo> lossList;
     private Map<String, BookInfo> lossMap;
     /**
      * TAG_ID异常图书，存储的是tag id
@@ -156,7 +153,7 @@ public class Res2Database {
      */
     private Map<String, String> allStatusAbnormalBookMap;
     /**
-     * 所有初始状态图书，存储的是tagID, bookIndex
+     * 所有初始状态未更新图书，存储的是tagID, bookIndex
      */
     private Map<String, String> allToBeUpdatedMap;
     /**
@@ -167,6 +164,9 @@ public class Res2Database {
      * 书的有序列表
      */
     private List<Map.Entry<String, String[]>> bookList;
+    /**
+     * 首书列表
+     */
     private LinkedHashMap<String, String> firstBookMap;
     /**
      * 对应图书馆数据库字段
@@ -184,9 +184,6 @@ public class Res2Database {
      */
     private static final String[] ERROR_LEVEL = {"暂无实际位置", "位置正确", "区域错误", "楼层错误", "列错误", "排错误", "架错误", "层错误", "顺序错误"};
 
-    private static final BookIndex[] FLOOR_INDEX = {new BookIndex("A"), new BookIndex("F"), new BookIndex("I"), new BookIndex("N")};
-
-    private static final String[] FLOOR_STR = {"A-E", "F-H", "I-M", "N-Z"};
     /**
      * 当前楼层
      */
@@ -246,8 +243,6 @@ public class Res2Database {
      */
 
     Res2Database(String filePath) {
-//        lossSet = new HashSet<>();
-//        lossList = new ArrayList<>();
         lossMap = new HashMap<>();
         statusAbnormalBookList = new ArrayList<>();
         tagAbnormalBookList = new ArrayList<>();
@@ -279,16 +274,9 @@ public class Res2Database {
         getAllLoanHoldList();
         getStatusAbnormalList();
         getLossList();
-        if (getCurrentWeek() == Config.LOSS_RESET_WEEK || getCurrentWeek() == Config.LOSS_RESET_WEEK - 1) {
-            //重置前两天出丢失报表
-            CHECK_LOSS = true;
-        } else {
-            CHECK_LOSS = false;
-        }
+        //重置前两天出丢失报表
+        CHECK_LOSS = getCurrentWeek() == Config.LOSS_RESET_WEEK || getCurrentWeek() == Config.LOSS_RESET_WEEK - 1;
         processRes();
-//        } else {
-//            getResInfo();
-//        }
         //生成报表
         if (CHECK_LOSS) {
             generateLossReport();
@@ -303,7 +291,6 @@ public class Res2Database {
         if (getCurrentWeek() == Config.LOSS_RESET_WEEK) {
             resetDatabaseLoss();
         }
-
         GUI.showCustomDialog(null, null, "数据库更新完毕");
     }
 
@@ -313,7 +300,7 @@ public class Res2Database {
      * <p>
      * 从XML文件初始化设置
      *
-     * @author: Wing
+     * @author Wing
      * date: 2018/9/5
      * time: 20:30
      */
@@ -336,7 +323,7 @@ public class Res2Database {
      * 重置楼层：FLOOR的丢失状态为丢失
      *
      * @author Wing
-     * @date 2018/12/5 20:26
+     * date: 2018/12/5 20:26
      */
     private void resetDatabaseLoss() {
         String[] floorBookIndex = {"A-E", "E-H", "I-M", "N-Z"};
@@ -361,14 +348,14 @@ public class Res2Database {
     }
 
     /**
-     * 从数据库中获取当前楼层图书信息
+     * 从数据库中获取当前楼层所有图书信息
      *
      * @param bookInfos 图书信息保存的Map
      */
     private void getAllBookInfoFromDB(Map<String, String[]> bookInfos) {
         String sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
                 DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
-                " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^[" + FLOOR_STR[FLOOR - 2] + "]')";
+                " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^[" + BookIndex.FLOOR_BOOK_INDEX[FLOOR - 2] + "]')";
         LOGGER.info("获取A区" + FLOOR + "楼图书信息...");
         getDBConnection();
         createStatement();
@@ -422,6 +409,10 @@ public class Res2Database {
         LOGGER.info("读取res文件...");
         bookMap = new TreeMap<>();
         List<String> result = readFileByLine(resPath);
+        if (result.size() < 2) {
+            LOGGER.warn("res异常");
+            return;
+        }
         LOGGER.info("共有" + result.size() + "条待处理");
 //        resInfo = new String[result.size()][];
         String[] resIn;
@@ -506,9 +497,10 @@ public class Res2Database {
                     statement.executeQuery(sql);
                 }
                 //错误馆藏地的图书
-                if (tmp[2] == null) {
-                    System.out.println("TagID=" + tagID + "的书,CURRENT_LIBRARY为空");
-                } else if (!tmp[2].equals("WL30")) {
+//                if (tmp[2] == null) {
+//                    LOGGER.warn("TagID=" + tagID + "的书,CURRENT_LIBRARY为空");
+//                } else
+                if (!"WL30".equals(tmp[2])) {
                     errorLibBookMap.put(tagID, tmp[2]);
                 }
                 //借出预约列表
@@ -800,7 +792,7 @@ public class Res2Database {
      * 获取初始位置未更新列表
      *
      * @author Wing
-     * @date 2018/12/6 20:26
+     * date: 2018/12/6 20:26
      */
     private void getToBeUpdatedList() {
         LOGGER.info("获取初始位置未更新列表");
@@ -835,7 +827,7 @@ public class Res2Database {
      * <p>
      *
      * @author Wing
-     * @date 2018/12/6 20:26
+     * date: 2018/12/6 20:26
      */
     private void getStatusAbnormalList() {
         LOGGER.info("获取所有状态异常列表");
@@ -911,7 +903,7 @@ public class Res2Database {
                         "BOOK_ORDER_NO='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
                         "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
 
-                Boolean isError = bookInfos[BookFieldName.ERRORFLAG.getIndex()].equals("1");
+                boolean isError = bookInfos[BookFieldName.ERRORFLAG.getIndex()].equals("1");
 
                 if (isError) {
                     String bookPlace = getRightBookPlace(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]);
@@ -937,16 +929,6 @@ public class Res2Database {
                     getDBConnection();
                     createStatement();
                 }
-//                try {
-//                    statement.executeUpdate(sql);
-//                } catch (SQLException e) {
-//                    LOGGER.error(e.getMessage());
-//                    LOGGER.info("尝试重连");
-//                    closeStatement();
-//                    closeDBConnection();
-//                    getDBConnection();
-//                    createStatement();
-//                }
             }
             try {
                 statement.executeUpdate(sql);
@@ -1166,7 +1148,6 @@ public class Res2Database {
         WritableSheet[] sheets = {sheetErr, sheetErrLib, sheetStatusAbn, sheetTagAbn, sheetFirstBook, sheetLoan, sheetHold};
         for (WritableSheet sheet : sheets) {
             //添加第一行信息
-            // Label labTitle_ = new Label(0, 0, "架号"+data[3]+" 层号"+data[4]);
             labTagIDText = new Label(0, 0, "TagID", formatText);
             labBookIDText = new Label(0, 0, "条形码", formatText);
             labBookIndexText = new Label(1, 0, "索书号", formatText);
@@ -1223,10 +1204,6 @@ public class Res2Database {
         getDBConnection();
         createStatement();
         for (Map.Entry<String, String[]> entry : bookList) {
-//            count++;
-//            if (count % 2000 == 0) {
-//                LOGGER.info("已处理" + count);
-//            }
             String tagID = entry.getKey();
             String[] bookInfos = entry.getValue();
             String tmp = bookInfos[BookFieldName.COLUMNNO.getIndex()] + "列 " + bookInfos[BookFieldName.ROWNO.getIndex
@@ -1241,7 +1218,6 @@ public class Res2Database {
                 //不存在此sheet
                 sheet = book.createSheet(tmp, sheetNum);
                 sheetNum++;
-                // Label labTitle_ = new Label(0, 0, "架号"+data[3]+" 层号"+data[4]);
                 labBookIDText = new Label(0, 0, "条形码", formatText);
                 labBookIndexText = new Label(1, 0, "索书号", formatText);
                 labBookNameText = new Label(2, 0, "书名", formatText);
@@ -1270,7 +1246,6 @@ public class Res2Database {
             addBookToSheet(sheet, bookInfos, format);
             String str1 = "1";
             if (str1.equals(bookInfos[BookFieldName.ERRORFLAG.getIndex()]) || errorLibBookMap.containsKey(tagID)) {
-                //将错架图书和错误馆藏地图书加入错架列表
                 addBookToSheet(sheetErr, bookInfos, format);
                 String bookP = getRightBookPlace(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]);
                 if (bookP == null) {
@@ -1279,8 +1254,6 @@ public class Res2Database {
                 String[] bookPlace = locationDecode(bookP);
                 //加入正确位置
                 int rowNo = sheetErr.getRows() - 1;
-//                Label labAreaNo = new Label(9, rowNo, bookPlace[0], format);
-//                Label labFloorNo = new Label(10, rowNo, bookPlace[1], format);
                 Label labColumnNo = new Label(9, rowNo, bookPlace[2], format);
                 Label labRowNo = new Label(10, rowNo, bookPlace[3], format);
                 Label labShelfNo = new Label(11, rowNo, bookPlace[4], format);
@@ -1313,7 +1286,6 @@ public class Res2Database {
             if (allStatusAbnormalBookMap.containsKey(tagID)) {
                 //状态异常图书
                 String status = allStatusAbnormalBookMap.get(tagID);
-//                LOGGER.info(status);
                 addBookToSheet(sheetStatusAbn, bookInfos, format);
                 Label labStatus = new Label(9, sheetStatusAbn.getRows() - 1, status, format);
                 try {
@@ -1478,7 +1450,6 @@ public class Res2Database {
         } catch (WriteException e) {
             LOGGER.error(getTrace(e));
         }
-        // Label labTitle_ = new Label(0, 0, "架号"+data[3]+" 层号"+data[4]);
         Label labBookIDText = new Label(0, 0, "条形码", format1),
                 labBookIndexText = new Label(1, 0, "索书号", format1),
                 labBookNameText = new Label(2, 0, "书名", format1),
@@ -1499,7 +1470,6 @@ public class Res2Database {
         for (int i = 0; i < EXCEL_LENGTH.length; i++) {
             sheetLoss.setColumnView(i, EXCEL_LENGTH[i]);
         }
-//        for (BookInfo bookInfo : lossList) {
         for (Map.Entry<String, BookInfo> entry : lossList) {
             BookInfo bookInfo = entry.getValue();
             String bookID = bookInfo.bookId;
@@ -1512,9 +1482,6 @@ public class Res2Database {
                     continue;
                 }
                 String[] bookInfos = locationDecode(bookPlace);
-//                if (bookID.equals("2100052523")) {
-//                    System.out.println("");
-//                }
                 countLoss++;
                 if (countLoss % 60000 == 0) {
                     sheetLoss = book.createSheet("丢失列表" + (sheetNum + 1), sheetNum);
@@ -1556,7 +1523,7 @@ public class Res2Database {
      * zipSend 将生成的丢失列表和报表压缩并发送
      *
      * @author Wing
-     * @date 2018/11/13 16:24
+     * date: 2018/11/13 16:24
      */
     private void zipSend() {
         String zipFilePath = reportPath.replaceAll("xls", "zip");

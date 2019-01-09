@@ -9,7 +9,7 @@ import java.io.StringWriter;
  * 日志类
  *
  * @author Wing
- * @date 2018.07.19
+ * date: 2018.07.19
  */
 public class MyLogger {
     public static final Logger LOGGER = Logger.getLogger(MyLogger.class.getName());
@@ -32,6 +32,9 @@ public class MyLogger {
 
         buffer.append("Exception");
         for (String s : str) {
+            if (buffer.length() > 5) {
+                break;
+            }
             buffer.append("\r\n\t").append(s);
         }
         writer.close();
