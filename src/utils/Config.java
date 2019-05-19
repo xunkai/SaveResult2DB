@@ -27,6 +27,8 @@ public class Config {
 
     public static String DESKTOP_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath();
     public static int LOSS_RESET_WEEK = 2;
+
+    public static final String REPORT_END_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\Tooker\\Report\\REPORT_END";
     /**
      * 0 为文件读取,1为数据库
      */

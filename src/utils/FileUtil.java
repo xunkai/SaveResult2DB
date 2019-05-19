@@ -211,6 +211,43 @@ public final class FileUtil {
     }
 
     /**
+     * getAllFiles 递归获取文件夹下{day}天内的所有文件
+     *
+     * @param dir
+     * @param day
+     * @return java.util.List<java.io.File>
+     */
+    public static List<File> getAllFiles(File dir, int day) {
+        List<File> files = getAllFiles(dir);
+        List<File> filesCopy = new ArrayList<>();
+        filesCopy.addAll(files);
+        long time = (long) day * 24 * 60 * 60 * 1000;
+        long curTime = System.currentTimeMillis();
+        for (File file : filesCopy) {
+            long tmp = curTime - file.lastModified();
+            if (tmp > time) {
+                files.remove(file);
+            }
+        }
+        return files;
+    }
+
+    /**
+     * 创建新文件
+     *
+     * @param fileName
+     */
+    public static void createFile(String fileName) {
+        File file = new File(fileName);
+        if (!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    /**
      * main
      *
      * @param args
@@ -222,7 +259,10 @@ public final class FileUtil {
 //        deleteExpiredFile("D:\\边星宇\\IdeaProjects\\SaveResult2DB\\log", 30);
 //        deleteEmptyDirectory("F:\\whu\\");
 //        deleteFile("F:\\whu\\新建文件夹");
-        System.out.println(Config.REMAIN_SHELFS_STR);
+//        System.out.println(Config.REMAIN_SHELFS_STR);
+//        List<File> files = getAllFiles(new File("D:\\Wing\\IdeaProjects\\SaveResult2DB\\log"),5);
+//        System.out.println(files.size());
+        FileUtil.createFile(Config.REPORT_END_PATH);
     }
 }
 

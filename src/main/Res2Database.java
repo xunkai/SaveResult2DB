@@ -3,6 +3,7 @@ package main;
 import common.BookIndex;
 import common.BookInfo;
 import utils.Config;
+import utils.FileUtil;
 import utils.GUI;
 import utils.MyZip;
 
@@ -168,6 +169,7 @@ public class Res2Database {
      * 首书列表
      */
     private LinkedHashMap<String, String> firstBookMap;
+    private Map<String, String[]> bookInfosTxt;
     /**
      * 对应图书馆数据库字段
      **/
@@ -292,6 +294,7 @@ public class Res2Database {
             resetDatabaseLoss();
         }
         GUI.showCustomDialog(null, null, "数据库更新完毕");
+        FileUtil.createFile(Config.REPORT_END_PATH);
     }
 
     /**
@@ -319,6 +322,129 @@ public class Res2Database {
         Config.saveXml();
     }
 
+    /**
+     * method_name: initFromXml
+     * 使用之前的res数据来优化漏读率
+     *
+     * @author Wing
+     * date: 2019/1/10
+     * time: 14:56
+     */
+    private void OptimizingLeakageRate() {
+        LOGGER.info("优化漏读率...");
+        int day = 5;
+        File resFile = new File(resPath);
+        File resdir = resFile.getParentFile();
+        List<File> resFiles = getAllFiles(resdir, day);
+        //去除当前res
+        resFiles.remove(resFile);
+        LOGGER.info("读取之前" + day + "天res文件...");
+        List<String> result = new ArrayList<>();
+        for (File file : resFiles) {
+            if (file.getName().matches("A" + FLOOR + ".*")) {
+                result.addAll(readFileByLine(file.getPath()));
+            }
+        }
+        if (result.size() < 2) {
+            LOGGER.warn("res异常");
+            return;
+        }
+        Map<String, String[]> formerBookMap = new TreeMap<>();
+        LOGGER.info("共有" + result.size() + "条待处理");
+        String[] resIn;
+
+        int i = 0;
+        int countRC = 0, countQuery = 0;
+        LOGGER.info("连接数据库...");
+        getDBConnection();
+        LOGGER.info("连接成功...");
+        try {
+            statement = connect.createStatement();
+            for (String data : result) {
+                data = data.replaceAll("[^\\w|\\d| ]", "");
+                String[] bookInfos = new String[BOOK_FIELD_NUM];
+                resIn = data.split(" ");
+                String tagID = resIn[0];
+                if (tagID.length() > 0) {
+                    //处理借出图书，将首位8改为0
+                    char[] arr = tagID.toCharArray();
+                    arr[0] = arr[0] == '8' ? '0' : arr[0];
+                    tagID = new String(arr);
+                    if (tagID.matches("^CD[\\d\\w]+$")) {
+                        countRC++;
+                        LOGGER.info("层架标：" + tagID);
+                        continue;
+                    }
+                }
+                if (resIn.length != 10) {
+                    System.out.println(resIn.length);
+                    LOGGER.info("TAG_ID:" + tagID + "数据异常");
+                    continue;
+                }
+                System.arraycopy(resIn, 1, bookInfos, BookFieldName.AREANO.getIndex(), FIELD_NUM - 1);
+                String[] tmp = bookInfosTxt.get(tagID);
+                if (tmp == null) {
+                    //WL30无此书,查询所有库
+//                    tmp = getBookInfo(tagID);
+                    tmp = new String[4];
+                    tmp[0] = null;
+                    String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
+                            "" + "" + "= '" + tagID + "'";
+                    resultSet = statement.executeQuery(sql);
+                    if (resultSet.next()) {
+                        tmp[0] = resultSet.getString(BookFieldName.BOOK_ID.getName());
+                        tmp[1] = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
+                        tmp[3] = resultSet.getString(BookFieldName.BOOK_NAME.getName());
+                        tmp[2] = resultSet.getString("CURRENT_LIBRARY");
+                    }
+                    countQuery++;
+                    continue;
+                }
+                bookInfos[0] = tmp[0];
+                bookInfos[1] = tmp[1];
+                bookInfos[2] = tmp[3];
+                if (bookInfos[1] == null || bookInfos[0] == null) {
+                    //数据库无此书
+                    LOGGER.warn("数据库未找到TagID=" + tagID + "的书");
+                    bookInfos[0] = "数据库未找到";
+                    bookInfos[1] = "";
+                    bookInfos[2] = "";
+                    formerBookMap.put(tagID, bookInfos);
+//                    countQuery++;
+                    continue;
+                }
+                if (isForeignBook(bookInfos[1], bookInfos[2])) {
+                    LOGGER.info("外文书：" + bookInfos[2]);
+                    continue;
+                }
+                formerBookMap.put(tagID, bookInfos);
+                i++;
+                if (i % 1000 == 0) {
+                    LOGGER.info("已处理" + i);
+                }
+            }
+            statement.close();
+            connect.close();
+        } catch (SQLException e) {
+            LOGGER.error(getTrace(e));
+        }
+        LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
+        int countOptimization = 0;
+        Map<String, BookInfo> lossMapCopy = new TreeMap<>();
+        lossMapCopy.putAll(lossMap);
+        for (Map.Entry<String, BookInfo> entry : lossMapCopy.entrySet()) {
+            String tagID = entry.getKey();
+            if (formerBookMap.containsKey(tagID)) {
+                //之前读到
+                bookMap.put(tagID, formerBookMap.get(tagID));
+                lossMap.remove(tagID);
+                countOptimization++;
+            }
+        }
+        formerBookMap.clear();
+        LOGGER.info("减少漏读" + countOptimization + "本");
+
+    }
     /**
      * 重置楼层：FLOOR的丢失状态为丢失
      *
@@ -350,9 +476,8 @@ public class Res2Database {
     /**
      * 从数据库中获取当前楼层所有图书信息
      *
-     * @param bookInfos 图书信息保存的Map
      */
-    private void getAllBookInfoFromDB(Map<String, String[]> bookInfos) {
+    private void getAllBookInfoFromDB() {
         String sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
                 DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
                 " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^[" + BookIndex.FLOOR_BOOK_INDEX[FLOOR - 2] + "]')";
@@ -368,20 +493,19 @@ public class Res2Database {
                 String bookName = resultSet.getString("BOOK_NAME");
                 String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
                 String[] tmp = {bookID, bookIndex, currentLibrary, bookName};
-                bookInfos.put(tagID, tmp);
+                bookInfosTxt.put(tagID, tmp);
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        LOGGER.info("获取A区" + FLOOR + "楼图书完毕，图书共" + bookInfos.size() + "册");
+        LOGGER.info("获取A区" + FLOOR + "楼图书完毕，图书共" + bookInfosTxt.size() + "册");
     }
 
     /**
      * 从TXT中获取所有图书信息
      *
-     * @param bookInfos 图书信息保存的Map
      */
-    private void getAllBookInfoFromTxt(Map<String, String[]> bookInfos) {
+    private void getAllBookInfoFromTxt() {
         //读取TXT中的图书信息
         LOGGER.info("读取TXT中的图书信息...");
         List<String> txtInfos = readFileByLine(DB_TXT_PATH);
@@ -389,7 +513,7 @@ public class Res2Database {
             String[] infos = data.split("\\|");
             String tagID = infos[0];
             String[] tmp = Arrays.copyOfRange(infos, 1, 5);
-            bookInfos.put(tagID, tmp);
+            bookInfosTxt.put(tagID, tmp);
         }
         txtInfos.clear();
         LOGGER.info("读取成功");
@@ -400,11 +524,11 @@ public class Res2Database {
      */
     private void processRes() {
 
-        Map<String, String[]> bookInfosTxt = new TreeMap<>();
+        bookInfosTxt = new TreeMap<>();
         if (ENABLE_DATABASE == 0) {
-            getAllBookInfoFromTxt(bookInfosTxt);
+            getAllBookInfoFromTxt();
         } else {
-            getAllBookInfoFromDB(bookInfosTxt);
+            getAllBookInfoFromDB();
         }
         LOGGER.info("读取res文件...");
         bookMap = new TreeMap<>();
@@ -521,6 +645,7 @@ public class Res2Database {
             LOGGER.error(getTrace(e));
         }
         LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
+//        OptimizingLeakageRate();
         bookInfosTxt.clear();
         sortBooks();
         getFirstBooks();

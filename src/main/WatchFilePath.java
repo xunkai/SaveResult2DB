@@ -9,8 +9,6 @@ import static java.nio.file.StandardWatchEventKinds.*;
 
 import utils.Config;
 
-import javax.swing.filechooser.FileSystemView;
-
 import static utils.FileUtil.deleteExpiredFile;
 import static utils.FileUtil.deleteFile;
 import static utils.MyLogger.LOGGER;
@@ -148,18 +146,20 @@ public class WatchFilePath {
         deleteFile(Config.DESKTOP_PATH+"\\Tooker\\Config_I&Q\\failed_res");
         deleteFile(Config.DESKTOP_PATH+"\\Tooker\\Config_I&Q\\lastdate.f");
 
-        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
-        File file = new File(filepath);
-        if (!file.exists()) {
-            file.mkdirs();
-        }
-        new WatchFilePath(Paths.get(filepath)).handleEvents();
+        deleteFile(Config.REPORT_END_PATH);
+
+//        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
+//        File file = new File(filepath);
+//        if (!file.exists()) {
+//            file.mkdirs();
+//        }
+//        new WatchFilePath(Paths.get(filepath)).handleEvents();
 
         //test
-//        Res2Database res2Database = new Res2Database(
-////                修改这个
-////                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
-//                "F:\\whu\\2\\result\\A2_2019-01-07_22-37-33_full.res");
+        Res2Database res2Database = new Res2Database(
+//                修改这个
+//                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
+                "F:\\whu\\3\\result\\A4_2019-01-08_22-29-56_full.res");
     }
 }
 
