@@ -105,13 +105,10 @@ public class Res2Database {
      **/
 //    private String[][] resInfo;
     private static final int FIELD_NUM = 10;
-
-
     /**
      * 书籍信息维度
      */
     private static final int BOOK_FIELD_NUM = 12;
-
     /**
      * 表格列宽
      */
@@ -200,17 +197,8 @@ public class Res2Database {
      * 条形码 索书号 书名 区域号 楼层号 列号 排号 层号 架号 顺序号 放错等级 数量
      */
     private enum BookFieldName {
-        /**
-         * 条形码
-         */
         BOOK_ID("BOOK_ID", 0),
-        /**
-         * 索书号
-         */
         BOOK_INDEX("BOOK_INDEX", 1),
-        /**
-         * 书名
-         */
         BOOK_NAME("BOOK_NAME", 2),
         AREANO("AREANO", 3),
         FLOORNO("FLOORNO", 4),
@@ -239,7 +227,6 @@ public class Res2Database {
     }
 
     /**
-     * 初始化
      *
      * @param filePath 结果文件路径
      */
@@ -445,6 +432,7 @@ public class Res2Database {
         LOGGER.info("减少漏读" + countOptimization + "本");
 
     }
+
     /**
      * 重置楼层：FLOOR的丢失状态为丢失
      *
@@ -475,7 +463,6 @@ public class Res2Database {
 
     /**
      * 从数据库中获取当前楼层所有图书信息
-     *
      */
     private void getAllBookInfoFromDB() {
         String sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
@@ -503,7 +490,6 @@ public class Res2Database {
 
     /**
      * 从TXT中获取所有图书信息
-     *
      */
     private void getAllBookInfoFromTxt() {
         //读取TXT中的图书信息
@@ -523,7 +509,6 @@ public class Res2Database {
      * 处理res文件信息
      */
     private void processRes() {
-
         bookInfosTxt = new TreeMap<>();
         if (ENABLE_DATABASE == 0) {
             getAllBookInfoFromTxt();
@@ -538,7 +523,6 @@ public class Res2Database {
             return;
         }
         LOGGER.info("共有" + result.size() + "条待处理");
-//        resInfo = new String[result.size()][];
         String[] resIn;
 
         int i = 0;
@@ -566,9 +550,11 @@ public class Res2Database {
                         continue;
                     }
                 }
-//                    if(tagID.equals("010200A10C130041BCF90200")){
-//                        break;
-//                    }
+//                if (i==8883) {
+//                    System.out.println("Break");
+//                    i+=1;
+//                    continue;
+//                }
                 if (resIn.length != 10) {
                     System.out.println(resIn.length);
                     LOGGER.info("TAG_ID:" + tagID + "数据异常");
@@ -591,6 +577,9 @@ public class Res2Database {
                         tmp[2] = resultSet.getString("CURRENT_LIBRARY");
                     }
                     countQuery++;
+                    if (countQuery % 100 == 0) {
+                        LOGGER.info("已额外查询" + countQuery);
+                    }
                 }
                 bookInfos[0] = tmp[0];
                 bookInfos[1] = tmp[1];
@@ -614,7 +603,7 @@ public class Res2Database {
 
                 bookMap.put(tagID, bookInfos);
                 //也需要更新非本层图书的数据库信息
-                if (lossMap.containsKey(tagID) || BookIndex.getFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]) != FLOOR) {
+                if (lossMap.containsKey(tagID) || !BookIndex.isFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()], FLOOR)) {
                     lossMap.remove(tagID);
                     //更新丢失列表
                     String sql = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET IS_LOSS=1 WHERE TAG_ID = '" + tagID + "'";
@@ -644,7 +633,8 @@ public class Res2Database {
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
-        LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
+        LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" +
+                countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
 //        OptimizingLeakageRate();
         bookInfosTxt.clear();
         sortBooks();
@@ -716,7 +706,7 @@ public class Res2Database {
                         continue;
                     }
                     bookMap.put(tagID, bookInfos);
-                    if (lossMap.containsKey(tagID) || BookIndex.getFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]) != FLOOR) {
+                    if (lossMap.containsKey(tagID) || !BookIndex.isFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()], FLOOR)) {
 //                        BookInfo bookInfo = new BookInfo(tagID, bookInfos[0], bookInfos[1], bookInfos[2]);
 //                        lossList.remove(bookInfo);
 //                        lossSet.remove(bookInfos[0]);
@@ -731,7 +721,7 @@ public class Res2Database {
 //                    }
                     //错误馆藏地的图书
                     if (currentLibrary == null) {
-                        System.out.println("TagID=" + tagID + "的书,CURRENT_LIBRARY为空");
+                        LOGGER.warn("TagID=" + tagID + "的书,CURRENT_LIBRARY为空");
                     }
                     if (currentLibrary != null && !currentLibrary.equals("WL30")) {
                         errorLibBookMap.put(tagID, currentLibrary);
@@ -795,10 +785,10 @@ public class Res2Database {
                     i1 *= 2;
                     i2 *= 2;
                 }
-                if (b1[i3].equals("") || b2[i3].equals("")) {
-                    System.out.println(b1.toString());
-                    System.out.println(b2.toString());
-                }
+//                if (b1[i3].equals("") || b2[i3].equals("")) {
+//                    System.out.println(b1.toString());
+//                    System.out.println(b2.toString());
+//                }
                 i1 = i1 * 100 + Integer.valueOf(b1[i3]);
                 i2 = i2 * 100 + Integer.valueOf(b2[i3]);
             }
@@ -893,7 +883,7 @@ public class Res2Database {
 //                String status = resultSet.getString("Z30_ITEM_PROCESS_STATUS");
                 BookInfo bookInfo = new BookInfo(tagID, bookID, bookIndex, bookName);
                 if (!allLoanBookMap.containsKey(bookID) && !isForeignBook(bookIndex, bookName) && bookIndex != null) {
-                    if (BookIndex.getFloor(bookIndex) == FLOOR) {
+                    if (BookIndex.isFloor(bookIndex, FLOOR)) {
                         //丢失图书在当前层
                         if (!allStatusAbnormalBookMap.containsKey(tagID)) {
                             //去除状态异常的图书
@@ -936,7 +926,9 @@ public class Res2Database {
             while (resultSet.next()) {
                 String tagID = resultSet.getString("TAG_ID");
                 String bookIndex = resultSet.getString("BOOK_INDEX");
-                allToBeUpdatedMap.put(tagID, bookIndex);
+                if (BookIndex.isFloor(bookIndex, FLOOR)) {
+                    allToBeUpdatedMap.put(tagID, bookIndex);
+                }
             }
             statement.close();
             connect.close();
@@ -944,7 +936,7 @@ public class Res2Database {
             LOGGER.error(getTrace(e));
         }
         LOGGER.info("获取初始位置未更新列表");
-        LOGGER.info("初始位置未更新图书共有" + allToBeUpdatedMap.size() + "册.");
+        LOGGER.info("A" + FLOOR + "初始位置未更新图书共有" + allToBeUpdatedMap.size() + "册.");
     }
 
     /**
@@ -1013,37 +1005,41 @@ public class Res2Database {
         }
         getDBConnection();
         createStatement();
+
         for (Map.Entry<String, String[]> entry : bookList) {
             String tagID = entry.getKey();
             String[] bookInfos = entry.getValue();
             String checkPlace = locationEncode(bookInfos);
             String sql = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
-                    "check_level" + "='" + checkPlace + "', " +
+                    "check_level='" + checkPlace + "', " +
                     "BOOK_ORDER_NO" + "='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
                     "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
 //            LOGGER.info(sql);
+            String bookPlace;
             if (IS_FIRST || allToBeUpdatedMap.containsKey(tagID)) {
-                String sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
-                        "book_place='" + checkPlace + "', " +
-                        "BOOK_ORDER_NO='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
-                        "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
-
-                boolean isError = bookInfos[BookFieldName.ERRORFLAG.getIndex()].equals("1");
-
-                if (isError) {
-                    String bookPlace = getRightBookPlace(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]);
-                    sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
-                            "book_place='" + bookPlace + "', " +
-                            "BOOK_ORDER_NO" + "='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
-                            "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
+                if (allToBeUpdatedMap.containsKey(tagID)) {
+                    allToBeUpdatedMap.remove(tagID);
                 }
+                bookPlace = checkPlace;
+                boolean isError = bookInfos[BookFieldName.ERRORFLAG.getIndex()].equals("1");
+                if (isError) {
+                    bookPlace = getRightBookPlace(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]);
+                }
+//                if(bookPlace.equals("WLA5F4090706")){
+//                    System.out.println(checkPlace);
+//                }
                 if (errorLibBookMap.containsKey(tagID)) {
-                    sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
-                            "book_place='', " +
-                            "BOOK_ORDER_NO" + "='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
-                            "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
+                    bookPlace = null;
                 }
                 countUpdated++;
+//                if(countUpdated%1000==0){
+//                    System.out.println("已估计更新"+countUpdated);
+//                }
+
+                String sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
+                        "book_place='" + bookPlace + "', " +
+                        "BOOK_ORDER_NO" + "='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
+                        "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
                 try {
                     statement.executeUpdate(sqlBookPlace);
                 } catch (SQLException e) {
@@ -1072,10 +1068,13 @@ public class Res2Database {
             String tagID = entry.getKey();
             String bookIndex = entry.getValue();
             //图书在该层，且图书无初始位置
-            if (BookIndex.getFloor(bookIndex) == FLOOR &&
+            if (BookIndex.isFloor(bookIndex, FLOOR) &&
                     allToBeUpdatedMap.containsKey(tagID)) {
                 countUpdate++;
                 String bookPlace = getRightBookPlace(bookIndex);
+//                if(bookPlace.equals("WLA5F4090706")){
+//                    System.out.println("why");
+//                }
                 String sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
                         "book_place='" + bookPlace +
                         "' WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
@@ -1086,7 +1085,6 @@ public class Res2Database {
                 }
             }
         }
-
         closeStatement();
         closeDBConnection();
         LOGGER.info("数据库更新完成!图书初始位置更新" + countUpdated + "册，估计更新" + countUpdate + "册");

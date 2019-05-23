@@ -1,12 +1,5 @@
 package common;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-import static utils.FileUtil.readFileByLine;
-import static utils.FileUtil.writeFile;
-
 /**
  * 图书索引号类
  *
@@ -18,7 +11,7 @@ public class BookIndex implements Comparable {
     /**
      * 楼层起止索书号，分别对应2、3、4、5层
      */
-    public static String[] FLOOR_BOOK_INDEX = {"A-E", "E-H", "I-M", "N-Z"};
+    public static String[] FLOOR_BOOK_INDEX = {"A-E", "F-H", "I-K", "K-Z"};
     /**
      * 除去类别号和著者号的其他信息起始值，其值为{@value}
      */
@@ -59,6 +52,13 @@ public class BookIndex implements Comparable {
         }
     }
 
+
+    /**
+     * 获取图书属于哪一层，在图书分隔有重合时，总是返回前一层
+     *
+     * @param bookIndex
+     * @return
+     */
     public static int getFloor(String bookIndex) {
         if(bookIndex == null){
             return 0;
@@ -74,6 +74,23 @@ public class BookIndex implements Comparable {
         return floor+2;
     }
 
+    /**
+     * 判断图书是否属于这一层
+     *
+     * @param bookIndex
+     * @param floor
+     * @return
+     */
+    public static boolean isFloor(String bookIndex, int floor) {
+        if (bookIndex == null) {
+            return false;
+        }
+        String regex = "^[" + FLOOR_BOOK_INDEX[floor - 2] + "].*";
+        if (bookIndex.matches(regex)) {
+            return true;
+        }
+        return false;
+    }
     /**
      * {@inheritDoc}
      * 比较两个索引号的大小
@@ -134,7 +151,7 @@ public class BookIndex implements Comparable {
      * @param args Param description
      */
     public static void main(String[] args) {
-        System.out.println(getFloor("I78"));
+//        System.out.println(getFloor("I78"));
 //        List<String> bookIndexs = readFileByLine("data\\test_a.txt");
 //        Collections.shuffle(bookIndexs);
 

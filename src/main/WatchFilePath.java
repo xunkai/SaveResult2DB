@@ -128,8 +128,8 @@ public class WatchFilePath {
      */
     public static void main(String[] args) throws IOException, InterruptedException {
         String Version = "1.13";
-        String Time = "2019/1/5 16:30";
-        String Update = "1.修复了重连数据库失败的BUG；2.增加了消息框提示处理结束";
+        String Time = "2019/5/19 19:30";
+        String Update = "增加了报表生成后创建结束文件";
         LOGGER.info("Version: " + Version);
         LOGGER.info("Update at " + Time);
         LOGGER.info("Updating info " + Update);
@@ -148,18 +148,18 @@ public class WatchFilePath {
 
         deleteFile(Config.REPORT_END_PATH);
 
-//        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
-//        File file = new File(filepath);
-//        if (!file.exists()) {
-//            file.mkdirs();
-//        }
-//        new WatchFilePath(Paths.get(filepath)).handleEvents();
+        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
+        File file = new File(filepath);
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+        new WatchFilePath(Paths.get(filepath)).handleEvents();
 
         //test
-        Res2Database res2Database = new Res2Database(
-//                修改这个
-//                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
-                "F:\\whu\\3\\result\\A4_2019-01-08_22-29-56_full.res");
+//        Res2Database res2Database = new Res2Database(
+////                修改这个
+////                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
+//                "E:\\whu\\3\\result\\A4_2019-05-09_22-15-00_full.res");
     }
 }
 
