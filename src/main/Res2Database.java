@@ -2,6 +2,7 @@ package main;
 
 import common.BookIndex;
 import common.BookInfo;
+import common.BookLoss;
 import utils.Config;
 import utils.FileUtil;
 import utils.GUI;
@@ -15,12 +16,10 @@ import jxl.write.biff.RowsExceededException;
 import javax.swing.filechooser.FileSystemView;
 import java.io.File;
 import java.io.IOException;
-import java.lang.Boolean;
 import java.sql.*;
 import java.util.*;
 
 import static utils.Config.CHECK_LOSS;
-import static utils.DateUtil.getCurrentWeek;
 import static utils.FileUtil.*;
 import static utils.MyLogger.LOGGER;
 import static utils.MyLogger.getTrace;
@@ -33,6 +32,11 @@ import static utils.TextUtil.containChinese;
  * @version 1.0, 18/05/10
  */
 public class Res2Database {
+    private static boolean RES_ILLEGAL = false;
+    /**
+     * 报表日期
+     */
+    public static String REPORT_DATE;
     /**
      * 报表存储路径
      **/
@@ -60,7 +64,7 @@ public class Res2Database {
      */
     private static int ENABLE_DATABASE = 1;
     /**
-     * 数据库ip
+     * 数据库配置信息
      **/
     private static String HOST = "202.114.65.49";
     /**
@@ -133,6 +137,7 @@ public class Res2Database {
      * 丢失书籍集合
      */
     private Map<String, BookInfo> lossMap;
+    private BookLoss bookLoss;
     /**
      * TAG_ID异常图书，存储的是tag id
      */
@@ -227,7 +232,6 @@ public class Res2Database {
     }
 
     /**
-     *
      * @param filePath 结果文件路径
      */
 
@@ -243,6 +247,13 @@ public class Res2Database {
         allHoldBookMap = new HashMap<>();
         errorLibBookMap = new TreeMap<>();
         this.resPath = filePath;
+        String resName = new File(resPath).getName();
+        if (resName.length() < 15) {
+            LOGGER.warn("res文件命名不规范：" + resName);
+        } else {
+            REPORT_DATE = resName.substring(3, 13);
+        }
+        bookLoss = new BookLoss(REPORT_DATE);
         String fileName = resPath.replaceAll("^.+\\\\", "").replace(".res", ".xls");
         String lossFileName = fileName.replace(".xls", "_loss.xls");
         String fileDir = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\报表";
@@ -262,12 +273,17 @@ public class Res2Database {
         }
         getAllLoanHoldList();
         getStatusAbnormalList();
-        getLossList();
+//        getLossList();
         //重置前两天出丢失报表
-        CHECK_LOSS = getCurrentWeek() == Config.LOSS_RESET_WEEK || getCurrentWeek() == Config.LOSS_RESET_WEEK - 1;
+//        CHECK_LOSS = getCurrentWeek() == Config.LOSS_RESET_WEEK || getCurrentWeek() == Config.LOSS_RESET_WEEK - 1;
         processRes();
+        if (RES_ILLEGAL) {
+            LOGGER.warn("res异常，程序中断");
+            return;
+        }
         //生成报表
         if (CHECK_LOSS) {
+            getLossList();
             generateLossReport();
         }
         generateReportTemp();
@@ -277,9 +293,9 @@ public class Res2Database {
             write2DB();
         }
         //重置LOSS
-        if (getCurrentWeek() == Config.LOSS_RESET_WEEK) {
-            resetDatabaseLoss();
-        }
+//        if (getCurrentWeek() == Config.LOSS_RESET_WEEK) {
+//            resetDatabaseLoss();
+//        }
         GUI.showCustomDialog(null, null, "数据库更新完毕");
         FileUtil.createFile(Config.REPORT_END_PATH);
     }
@@ -468,7 +484,7 @@ public class Res2Database {
         String sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
                 DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
                 " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^[" + BookIndex.FLOOR_BOOK_INDEX[FLOOR - 2] + "]')";
-        LOGGER.info("获取A区" + FLOOR + "楼图书信息...");
+        LOGGER.info("连接数据库,获取A区" + FLOOR + "楼图书信息...");
         getDBConnection();
         createStatement();
         try {
@@ -485,6 +501,8 @@ public class Res2Database {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        closeStatement();
+        closeDBConnection();
         LOGGER.info("获取A区" + FLOOR + "楼图书完毕，图书共" + bookInfosTxt.size() + "册");
     }
 
@@ -520,6 +538,7 @@ public class Res2Database {
         List<String> result = readFileByLine(resPath);
         if (result.size() < 2) {
             LOGGER.warn("res异常");
+            RES_ILLEGAL = true;
             return;
         }
         LOGGER.info("共有" + result.size() + "条待处理");
@@ -550,11 +569,6 @@ public class Res2Database {
                         continue;
                     }
                 }
-//                if (i==8883) {
-//                    System.out.println("Break");
-//                    i+=1;
-//                    continue;
-//                }
                 if (resIn.length != 10) {
                     System.out.println(resIn.length);
                     LOGGER.info("TAG_ID:" + tagID + "数据异常");
@@ -602,6 +616,7 @@ public class Res2Database {
                 }
 
                 bookMap.put(tagID, bookInfos);
+                bookLoss.updateDate(tagID, bookInfos[1]);
                 //也需要更新非本层图书的数据库信息
                 if (lossMap.containsKey(tagID) || !BookIndex.isFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()], FLOOR)) {
                     lossMap.remove(tagID);
@@ -633,10 +648,11 @@ public class Res2Database {
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
+        bookLoss.saveBookLossDate();
         LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" +
                 countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
 //        OptimizingLeakageRate();
-        bookInfosTxt.clear();
+//        bookInfosTxt.clear();
         sortBooks();
         getFirstBooks();
     }
@@ -830,10 +846,8 @@ public class Res2Database {
      * 从数据库中获取借出和预约图书列表
      */
     private void getAllLoanHoldList() {
-        LOGGER.info("获取所有借出预约列表");
-        LOGGER.info("连接数据库...");
+        LOGGER.info("连接数据库,获取所有借出预约列表...");
         getDBConnection();
-        LOGGER.info("连接成功...");
         try {
             statement = connect.createStatement();
             if (statement == null) {
@@ -856,7 +870,6 @@ public class Res2Database {
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
-        LOGGER.info("所有借出预约列表");
         LOGGER.info("借出图书共有" + allLoanBookMap.size() + "册.预约图书共有" + allHoldBookMap.size() + "册");
     }
 
@@ -865,41 +878,20 @@ public class Res2Database {
      */
     private void getLossList() {
         LOGGER.info("获取丢失列表");
-        LOGGER.info("连接数据库...");
-        getDBConnection();
-        LOGGER.info("连接成功...");
-        try {
-            statement = connect.createStatement();
-            String sql = "SELECT TAG_ID,BOOK_ID,BOOK_INDEX,BOOK_NAME" +
-                    " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
-                    " WHERE IS_LOSS = 0 and CURRENT_LIBRARY= 'WL30'";
-//            LOGGER.info(sql);
-            resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
-                String tagID = resultSet.getString("TAG_ID");
-                String bookID = resultSet.getString("BOOK_ID");
-                String bookIndex = resultSet.getString("BOOK_INDEX");
-                String bookName = resultSet.getString("BOOK_NAME");
-//                String status = resultSet.getString("Z30_ITEM_PROCESS_STATUS");
-                BookInfo bookInfo = new BookInfo(tagID, bookID, bookIndex, bookName);
-                if (!allLoanBookMap.containsKey(bookID) && !isForeignBook(bookIndex, bookName) && bookIndex != null) {
-                    if (BookIndex.isFloor(bookIndex, FLOOR)) {
-                        //丢失图书在当前层
-                        if (!allStatusAbnormalBookMap.containsKey(tagID)) {
-                            //去除状态异常的图书
-                            lossMap.put(tagID, bookInfo);
-                        }
-                    }
+        List<String> allLossBook = bookLoss.getLoss(FLOOR);
+        for (String tagId : allLossBook) {
+            if (!allStatusAbnormalBookMap.containsKey(tagId)) {
+                //去除状态异常的图书
+                String[] tmp = bookInfosTxt.get(tagId);
+                String bookID = tmp[0];
+                String bookIndex = tmp[1];
+                String bookName = tmp[3];
+                if (!allLoanBookMap.containsKey(bookID) && !isForeignBook(bookIndex, bookName)) {
+                    lossMap.put(tagId, new BookInfo(tagId, tmp[0], tmp[1], tmp[3]));
+
                 }
             }
-            statement.close();
-            connect.close();
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
-            LOGGER.info("获取丢失列表失败");
-            return;
         }
-        LOGGER.info("成功获取丢失列表");
         LOGGER.info("目前A" + FLOOR + "丢失图书共计" + lossMap.size() + "册");
     }
 
@@ -910,10 +902,8 @@ public class Res2Database {
      * date: 2018/12/6 20:26
      */
     private void getToBeUpdatedList() {
-        LOGGER.info("获取初始位置未更新列表");
-        LOGGER.info("连接数据库...");
+        LOGGER.info("连接数据库,获取初始位置未更新列表...");
         getDBConnection();
-        LOGGER.info("连接成功...");
         try {
             statement = connect.createStatement();
             if (statement == null) {
@@ -947,10 +937,8 @@ public class Res2Database {
      * date: 2018/12/6 20:26
      */
     private void getStatusAbnormalList() {
-        LOGGER.info("获取所有状态异常列表");
-        LOGGER.info("连接数据库...");
+        LOGGER.info("连接数据库,获取所有状态异常列表...");
         getDBConnection();
-        LOGGER.info("连接成功...");
         try {
             statement = connect.createStatement();
             if (statement == null) {
@@ -960,7 +948,7 @@ public class Res2Database {
                     " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + "," + DB_STATUS_NAME + "." + TABLE_STATUS_NAME +
                     " WHERE CURRENT_LIBRARY= 'WL30' and trim(" + TABLE_STATUS_NAME + ".Z30_barcode) = " +
                     TABLE_MAIN_NAME + ".BOOK_ID and z30.Z30_ITEM_PROCESS_STATUS is not null and z30.Z30_ITEM_PROCESS_STATUS <> '  '";
-            LOGGER.info("SQL:" + sql);
+//            LOGGER.info("SQL:" + sql);
             resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
                 String tagID = resultSet.getString("TAG_ID");
@@ -978,7 +966,6 @@ public class Res2Database {
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
-        LOGGER.info("获得状态异常列表");
         LOGGER.info("状态异常图书共有" + allStatusAbnormalBookMap.size() + "册.");
     }
 
@@ -1598,39 +1585,39 @@ public class Res2Database {
             String bookID = bookInfo.bookId;
             String bookIndex = bookInfo.bookIndex;
             String bookName = bookInfo.bookName;
-            if (!allLoanBookMap.containsKey(bookID) && !isForeignBook(bookIndex, bookName)) {
-                //不在借出列表中，也不是外文书
-                String bookPlace = getRightBookPlace(bookIndex);
-                if (bookPlace == null) {
-                    continue;
-                }
-                String[] bookInfos = locationDecode(bookPlace);
-                countLoss++;
-                if (countLoss % 60000 == 0) {
-                    sheetLoss = book.createSheet("丢失列表" + (sheetNum + 1), sheetNum);
-                    sheetNum++;
-                    //表格格式设置，固定列宽和自动换行
-                    for (int i = 0; i < EXCEL_LENGTH.length; i++) {
-                        sheetLoss.setColumnView(i, EXCEL_LENGTH[i]);
-                    }
-                }
-                int rowNo = sheetLoss.getRows();
-                Label labBookID = new Label(0, rowNo, bookID, format),
-                        labBookIndex = new Label(1, rowNo, bookIndex, format),
-                        labBookName = new Label(2, rowNo, bookName, format),
-                        labColumnNo = new Label(3, rowNo, bookInfos[2], format),
-                        labRowNo = new Label(4, rowNo, bookInfos[3], format),
-                        labShelfNo = new Label(5, rowNo, bookInfos[4], format),
-                        labLayerNo = new Label(6, rowNo, bookInfos[5], format);
-                Label[] labels = {labBookID, labBookIndex, labBookName, labColumnNo, labRowNo, labShelfNo, labLayerNo};
-                try {
-                    for (Label label : labels) {
-                        sheetLoss.addCell(label);
-                    }
-                } catch (WriteException e) {
-                    LOGGER.error(getTrace(e));
+//            if (!allLoanBookMap.containsKey(bookID) && !isForeignBook(bookIndex, bookName)) {
+            //不在借出列表中，也不是外文书
+            String bookPlace = getRightBookPlace(bookIndex);
+            if (bookPlace == null) {
+                continue;
+            }
+            String[] bookInfos = locationDecode(bookPlace);
+            countLoss++;
+            if (countLoss % 60000 == 0) {
+                sheetLoss = book.createSheet("丢失列表" + (sheetNum + 1), sheetNum);
+                sheetNum++;
+                //表格格式设置，固定列宽和自动换行
+                for (int i = 0; i < EXCEL_LENGTH.length; i++) {
+                    sheetLoss.setColumnView(i, EXCEL_LENGTH[i]);
                 }
             }
+            int rowNo = sheetLoss.getRows();
+            Label labBookID = new Label(0, rowNo, bookID, format),
+                    labBookIndex = new Label(1, rowNo, bookIndex, format),
+                    labBookName = new Label(2, rowNo, bookName, format),
+                    labColumnNo = new Label(3, rowNo, bookInfos[2], format),
+                    labRowNo = new Label(4, rowNo, bookInfos[3], format),
+                    labShelfNo = new Label(5, rowNo, bookInfos[4], format),
+                    labLayerNo = new Label(6, rowNo, bookInfos[5], format);
+            Label[] labels = {labBookID, labBookIndex, labBookName, labColumnNo, labRowNo, labShelfNo, labLayerNo};
+            try {
+                for (Label label : labels) {
+                    sheetLoss.addCell(label);
+                }
+            } catch (WriteException e) {
+                LOGGER.error(getTrace(e));
+            }
+//            }
         }
         try {
             book.write();
@@ -1770,6 +1757,16 @@ public class Res2Database {
         try {
             if (!statement.isClosed()) {
                 statement.close();
+            }
+        } catch (SQLException e) {
+            LOGGER.error(e.getMessage());
+        }
+    }
+
+    private void closeResultSet() {
+        try {
+            if (!resultSet.isClosed()) {
+                resultSet.close();
             }
         } catch (SQLException e) {
             LOGGER.error(e.getMessage());

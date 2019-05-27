@@ -127,9 +127,9 @@ public class WatchFilePath {
      * @throws InterruptedException
      */
     public static void main(String[] args) throws IOException, InterruptedException {
-        String Version = "1.13";
-        String Time = "2019/5/19 19:30";
-        String Update = "增加了报表生成后创建结束文件";
+        String Version = "1.14";
+        String Time = "2019/5/26 19:30";
+        String Update = "增加了丢失报表的新计算方法";
         LOGGER.info("Version: " + Version);
         LOGGER.info("Update at " + Time);
         LOGGER.info("Updating info " + Update);
@@ -159,7 +159,7 @@ public class WatchFilePath {
 //        Res2Database res2Database = new Res2Database(
 ////                修改这个
 ////                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
-//                "E:\\whu\\3\\result\\A4_2019-05-09_22-15-00_full.res");
+//                "E:\\whu\\2\\result\\A3_2019-05-21_22-10-02_full.res");
     }
 }
 

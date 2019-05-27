@@ -13,6 +13,10 @@ public class BookIndex implements Comparable {
      */
     public static String[] FLOOR_BOOK_INDEX = {"A-E", "F-H", "I-K", "K-Z"};
     /**
+     * 楼层起止索书号，分别对应2、3、4、5层
+     */
+    public static String[] FLOOR_START_INDEX = {"A", "F", "I", "K82"};
+    /**
      * 除去类别号和著者号的其他信息起始值，其值为{@value}
      */
     private final int OTHERNO = 2;
@@ -61,13 +65,15 @@ public class BookIndex implements Comparable {
      */
     public static int getFloor(String bookIndex) {
         if(bookIndex == null){
-            return 0;
+            return 1;
         }
-        int floor = 0;
-        for (int i = 0; i < FLOOR_BOOK_INDEX.length; i++) {
-            String regex = "^[" + FLOOR_BOOK_INDEX[i] + "].*";
-            if (bookIndex.matches(regex)) {
+        int floor = -1;
+        BookIndex b = new BookIndex(bookIndex);
+        for (int i = 0; i < FLOOR_START_INDEX.length; i++) {
+            BookIndex index = new BookIndex(FLOOR_START_INDEX[i]);
+            if (b.compareTo(index) > 0) {
                 floor = i;
+            } else {
                 break;
             }
         }
@@ -104,6 +110,9 @@ public class BookIndex implements Comparable {
         int tmp = classNo.compareTo(b2.classNo);
         if (tmp != 0) {
             return tmp;
+        }
+        if (authorNo == null && b2.authorNo == null) {
+            return 0;
         }
         if (authorNo == null) {
             return -1;
@@ -151,7 +160,7 @@ public class BookIndex implements Comparable {
      * @param args Param description
      */
     public static void main(String[] args) {
-//        System.out.println(getFloor("I78"));
+        System.out.println(getFloor("I78"));
 //        List<String> bookIndexs = readFileByLine("data\\test_a.txt");
 //        Collections.shuffle(bookIndexs);
 
