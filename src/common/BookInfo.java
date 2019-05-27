@@ -7,6 +7,7 @@ public class BookInfo implements Comparable{
     public String bookIndex;                    // 图书索书号
     public String bookId;                       //条形码
     public String bookName;                     //书名
+    public String currentLibrary;               //馆藏地
 
     public BookInfo(String tagId, String bookIndex) {
         this.tagId = tagId;

@@ -22,13 +22,16 @@ import javax.swing.filechooser.FileSystemView;
  * @version 1.0, 18/09/01
  */
 public class Config {
-    public static final String REMAIN_SHELFS_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\Tooker\\Config_I&Q\\RemainShelfs.txt";
+    public static final String PROJECT_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\Tooker";
+    public static final String REPORT_PATH = PROJECT_PATH + "\\Report";
+    public static final String REMAIN_SHELFS_PATH = PROJECT_PATH + "\\Config_I&Q\\RemainShelfs.txt";
     public static String REMAIN_SHELFS_STR;
 
     public static String DESKTOP_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath();
     public static int LOSS_RESET_WEEK = 2;
 
-    public static final String REPORT_END_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\Tooker\\Report\\REPORT_END";
+    public static final String REPORT_END_PATH = REPORT_PATH + "\\REPORT_END";
+    public static String REPORT_LOG_PATH = REPORT_PATH + "\\log\\log";
     /**
      * 0 为文件读取,1为数据库
      */
@@ -37,7 +40,7 @@ public class Config {
     /**
      * xml路径
      */
-    private static final String XML_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\Tooker\\Report\\config.xml";
+    private static final String XML_PATH = REPORT_PATH + "\\config.xml";
 
     /**
      * 是否第一次盘点
@@ -88,7 +91,6 @@ public class Config {
 
     public static boolean CHECK_LOSS;
 
-    public static String REPORT_LOG_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\Tooker\\Report\\log\\log";
     /**
      * xml的Dom树
      */

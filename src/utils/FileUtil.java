@@ -4,6 +4,7 @@ import java.io.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import static utils.MyLogger.LOGGER;
@@ -40,7 +41,7 @@ public final class FileUtil {
      */
     public static List<String> readFileByLine(String fileName) {
         ArrayList<String> result = new ArrayList<>();
-        if(!new File(fileName).exists()){
+        if (!new File(fileName).exists()) {
             result.add("");
             return result;
         }
@@ -67,7 +68,7 @@ public final class FileUtil {
      * @param isAddToTail 是否续写文件
      * @param contents    写入内容列表
      */
-    public static void writeFile(String fileName, boolean isAddToTail, List<String> contents) {
+    public static void writeFile(String fileName, boolean isAddToTail, List<?> contents) {
         try {
             File file = new File(fileName);
 
@@ -77,8 +78,29 @@ public final class FileUtil {
 
             BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, isAddToTail));
 
-            for (String string : contents) {
-                writer.write(string);
+            for (Object o : contents) {
+                writer.write(o.toString());
+                writer.newLine();
+            }
+
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void writeFile(String fileName, boolean isAddToTail, Map<?, ?> contents) {
+        try {
+            File file = new File(fileName);
+
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+
+            BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, isAddToTail));
+
+            for (Map.Entry<?, ?> entry : contents.entrySet()) {
+                writer.write(entry.getKey().toString() + " " + entry.getValue().toString());
                 writer.newLine();
             }
 
@@ -140,22 +162,25 @@ public final class FileUtil {
     /**
      * deleteEmptyDirectory 删除文件夹下所有空目录（包括自己）
      * <p>
-     * @param dirName 文件夹
      *
+     * @param dirName 文件夹
      * @author Wing
      * @date 2018/12/19 19:13
      */
     public static void deleteEmptyDirectory(String dirName) {
+        int count = 0;
         File dir = new File(dirName);
         if (dir.isDirectory()) {
             for (File file : dir.listFiles()) {
                 deleteEmptyDirectory(file.getPath());
                 if (file.isDirectory() && file.list().length == 0) {
                     file.delete();
+                    count++;
                     LOGGER.info("delete empty dir:" + file.getPath());
                 }
             }
         }
+//        LOGGER.info("已删除" + count + "个空目录！");
     }
 
     /**
@@ -168,6 +193,7 @@ public final class FileUtil {
      * @date 2018/12/4 14:15
      */
     public static void deleteExpiredFile(String dirName, int day) {
+        int count = 0;
         long time = (long) day * 24 * 60 * 60 * 1000;
         File dir = new File(dirName);
         if (!dir.exists()) {
@@ -180,10 +206,13 @@ public final class FileUtil {
             if (tmp > time) {
                 //Expired
                 file.delete();
+                count++;
                 LOGGER.info("delete " + file.getAbsolutePath());
             }
         }
         deleteEmptyDirectory(dirName);
+        LOGGER.info("已删除" + count + "个过期文件！");
+
     }
 
     /**
@@ -247,6 +276,7 @@ public final class FileUtil {
             }
         }
     }
+
     /**
      * main
      *
@@ -256,13 +286,13 @@ public final class FileUtil {
      * @date 2018/12/4 18:47
      */
     public static void main(String[] args) {
-//        deleteExpiredFile("D:\\边星宇\\IdeaProjects\\SaveResult2DB\\log", 30);
-//        deleteEmptyDirectory("F:\\whu\\");
+        deleteExpiredFile("E:\\whu\\", 45);
+//        deleteEmptyDirectory("E:\\whu\\");
 //        deleteFile("F:\\whu\\新建文件夹");
 //        System.out.println(Config.REMAIN_SHELFS_STR);
 //        List<File> files = getAllFiles(new File("D:\\Wing\\IdeaProjects\\SaveResult2DB\\log"),5);
 //        System.out.println(files.size());
-        FileUtil.createFile(Config.REPORT_END_PATH);
+//        FileUtil.createFile(Config.REPORT_END_PATH);
     }
 }
 
