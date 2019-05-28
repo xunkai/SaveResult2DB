@@ -88,14 +88,7 @@ public class BookIndex implements Comparable {
      * @return
      */
     public static boolean isFloor(String bookIndex, int floor) {
-        if (bookIndex == null) {
-            return false;
-        }
-        String regex = "^[" + FLOOR_BOOK_INDEX[floor - 2] + "].*";
-        if (bookIndex.matches(regex)) {
-            return true;
-        }
-        return false;
+        return floor == getFloor(bookIndex);
     }
     /**
      * {@inheritDoc}

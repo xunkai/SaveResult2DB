@@ -3,6 +3,7 @@ package main;
 import common.BookIndex;
 import common.BookInfo;
 import common.BookLoss;
+import common.DataBaseUtil;
 import utils.Config;
 import utils.FileUtil;
 import utils.GUI;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 
+import static common.DataBaseUtil.*;
 import static utils.Config.CHECK_LOSS;
 import static utils.FileUtil.*;
 import static utils.MyLogger.LOGGER;
@@ -63,46 +65,7 @@ public class Res2Database {
      * 0 为文件读取,1为数据库
      */
     private static int ENABLE_DATABASE = 1;
-    /**
-     * 数据库配置信息
-     **/
-    private static String HOST = "202.114.65.49";
-    /**
-     * 数据库端口
-     */
-    private static int PORT_NO = 1521;
-    /**
-     * 数据库名
-     */
-    private static String DB_MAIN_NAME = "RFID";
-    /**
-     * 状态数据库名
-     */
-    private static String DB_STATUS_NAME = "ALEPH";
-    /**
-     * 主表名
-     */
-    private static String TABLE_MAIN_NAME = "m_transform_tag";
-    /**
-     * 借出表名
-     */
-    private static String TABLE_BORROW_NAME = "borrow_list";
-    /**
-     * 状态表名，保存书籍状态信息
-     */
-    private static String TABLE_STATUS_NAME = "z30";
-    /**
-     * 用户名
-     */
-    private static String USERNAME = "autopd";
-    /**
-     * 密码
-     */
-    private static String PASSWORD = "123456";
 
-    private Connection connect = null;
-    private Statement statement = null;
-    private ResultSet resultSet = null;
     /**
      * 结果文件解析<br>
      * EPC 区域号 楼层号 列号 排号 架号 层号 顺序号 放错等级 当层数量
@@ -118,7 +81,7 @@ public class Res2Database {
      */
     private static int[] EXCEL_LENGTH = {20, 25, 80, 6, 6, 6, 6, 6, 15, 15};
     /**
-     * 错误馆藏地图书
+     * 错误馆藏地图书，存储的是tag id ,馆藏地
      */
     private TreeMap<String, String> errorLibBookMap;
     /**
@@ -501,6 +464,7 @@ public class Res2Database {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        closeResultSet();
         closeStatement();
         closeDBConnection();
         LOGGER.info("获取A区" + FLOOR + "楼图书完毕，图书共" + bookInfosTxt.size() + "册");
@@ -649,8 +613,8 @@ public class Res2Database {
             LOGGER.error(getTrace(e));
         }
         bookLoss.saveBookLossDate();
-        LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" +
-                countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
+        LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;");
+        LOGGER.info("有" + countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
 //        OptimizingLeakageRate();
 //        bookInfosTxt.clear();
         sortBooks();
@@ -904,11 +868,8 @@ public class Res2Database {
     private void getToBeUpdatedList() {
         LOGGER.info("连接数据库,获取初始位置未更新列表...");
         getDBConnection();
+        createStatement();
         try {
-            statement = connect.createStatement();
-            if (statement == null) {
-                LOGGER.error("statement创建失败！");
-            }
             String sql = "SELECT TAG_ID,BOOK_INDEX" +
                     " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
                     " WHERE CURRENT_LIBRARY= 'WL30' and BOOK_PLACE IS NULL";
@@ -920,11 +881,12 @@ public class Res2Database {
                     allToBeUpdatedMap.put(tagID, bookIndex);
                 }
             }
-            statement.close();
-            connect.close();
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
+        closeResultSet();
+        closeStatement();
+        closeDBConnection();
         LOGGER.info("获取初始位置未更新列表");
         LOGGER.info("A" + FLOOR + "初始位置未更新图书共有" + allToBeUpdatedMap.size() + "册.");
     }
@@ -939,11 +901,8 @@ public class Res2Database {
     private void getStatusAbnormalList() {
         LOGGER.info("连接数据库,获取所有状态异常列表...");
         getDBConnection();
+        createStatement();
         try {
-            statement = connect.createStatement();
-            if (statement == null) {
-                LOGGER.error("statement创建失败！");
-            }
             String sql = "SELECT TAG_ID,Z30_ITEM_PROCESS_STATUS" +
                     " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + "," + DB_STATUS_NAME + "." + TABLE_STATUS_NAME +
                     " WHERE CURRENT_LIBRARY= 'WL30' and trim(" + TABLE_STATUS_NAME + ".Z30_barcode) = " +
@@ -961,11 +920,12 @@ public class Res2Database {
 //                    LOGGER.info(status);
                 }
             }
-            statement.close();
-            connect.close();
         } catch (SQLException e) {
             LOGGER.error(getTrace(e));
         }
+        closeResultSet();
+        closeStatement();
+        closeDBConnection();
         LOGGER.info("状态异常图书共有" + allStatusAbnormalBookMap.size() + "册.");
     }
 
@@ -992,7 +952,6 @@ public class Res2Database {
         }
         getDBConnection();
         createStatement();
-
         for (Map.Entry<String, String[]> entry : bookList) {
             String tagID = entry.getKey();
             String[] bookInfos = entry.getValue();
@@ -1019,10 +978,6 @@ public class Res2Database {
                     bookPlace = null;
                 }
                 countUpdated++;
-//                if(countUpdated%1000==0){
-//                    System.out.println("已估计更新"+countUpdated);
-//                }
-
                 String sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
                         "book_place='" + bookPlace + "', " +
                         "BOOK_ORDER_NO" + "='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
@@ -1054,9 +1009,8 @@ public class Res2Database {
         for (Map.Entry<String, String> entry : allToBeUpdatedMap.entrySet()) {
             String tagID = entry.getKey();
             String bookIndex = entry.getValue();
-            //图书在该层，且图书无初始位置
-            if (BookIndex.isFloor(bookIndex, FLOOR) &&
-                    allToBeUpdatedMap.containsKey(tagID)) {
+            //图书不是错馆图书
+            if (!errorLibBookMap.containsKey(tagID)) {
                 countUpdate++;
                 String bookPlace = getRightBookPlace(bookIndex);
 //                if(bookPlace.equals("WLA5F4090706")){
@@ -1082,7 +1036,7 @@ public class Res2Database {
      * 通过EPC来获取图书信息
      *
      * @param tagID EPC号
-     * @return 书ID 书索引号 书名
+     * @return 书ID 书索引号 馆藏地 书名
      */
     private String[] getBookInfo(String tagID) {
         String bookID = null, bookIndex = "", bookName = "", currentLibrary = "";
@@ -1711,66 +1665,6 @@ public class Res2Database {
     private boolean isEpc(String epc) {
         /*之后可采用正则表达式判断*/
         return epc.length() >= 20;
-    }
-
-    /**
-     * 连接数据库
-     */
-    private void getDBConnection() {
-        try {
-            Class.forName("oracle.jdbc.driver.OracleDriver");
-        } catch (ClassNotFoundException e) {
-            LOGGER.error(getTrace(e));
-        }
-        try {
-            //实例化驱动程序类
-            DriverManager.registerDriver(new oracle.jdbc.driver.OracleDriver());
-            //驱动程序名：@主机名/IP：端口号：数据库实例名
-            String url = "jdbc:oracle:thin:@" + HOST + ":" + PORT_NO + ":" + DB_MAIN_NAME;
-//            LOGGER.info(url);
-            connect = DriverManager.getConnection(url, USERNAME, PASSWORD);
-        } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
-        }
-    }
-
-    private void closeDBConnection() {
-        try {
-            connect.close();
-        } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
-        }
-    }
-
-    private void createStatement() {
-        try {
-            if (connect.isClosed()) {
-                getDBConnection();
-            }
-            statement = connect.createStatement();
-        } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
-        }
-    }
-
-    private void closeStatement() {
-        try {
-            if (!statement.isClosed()) {
-                statement.close();
-            }
-        } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
-        }
-    }
-
-    private void closeResultSet() {
-        try {
-            if (!resultSet.isClosed()) {
-                resultSet.close();
-            }
-        } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
-        }
     }
 
     public static void main(String[] args) {

@@ -1,7 +1,5 @@
 package common;
 
-import org.omg.CORBA.PUBLIC_MEMBER;
-
 import java.sql.*;
 
 import static utils.MyLogger.LOGGER;
@@ -9,6 +7,7 @@ import static utils.MyLogger.getTrace;
 
 /**
  * Created by Wing on 2019/5/24
+ * 数据库类
  * <p>
  * Project: SaveResult2DB
  */
@@ -16,11 +15,11 @@ public class DataBaseUtil {
     /**
      * 数据库配置信息
      **/
-    private static String HOST = "202.114.65.49";
+    public static String HOST = "202.114.65.49";
     /**
      * 数据库端口
      */
-    private static int PORT_NO = 1521;
+    public static int PORT_NO = 1521;
     /**
      * 数据库名
      */
@@ -44,11 +43,11 @@ public class DataBaseUtil {
     /**
      * 用户名
      */
-    private static String USERNAME = "autopd";
+    public static String USERNAME = "autopd";
     /**
      * 密码
      */
-    private static String PASSWORD = "123456";
+    public static String PASSWORD = "123456";
 
     public static Connection connect = null;
     public static Statement statement = null;
@@ -108,7 +107,7 @@ public class DataBaseUtil {
         }
     }
 
-    private void closeResultSet() {
+    public static void closeResultSet() {
         if (resultSet == null) {
             return;
         }
