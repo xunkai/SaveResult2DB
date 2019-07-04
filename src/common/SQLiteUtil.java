@@ -154,6 +154,14 @@ public class SQLiteUtil {
                 bookInfo.bookIndex = bookIndex;
             } else {
                 bookInfo = getBookInfo(barcode);
+                if(bookInfo==null){
+                    LOGGER.error("连接图书馆服务器失败！");
+                    Thread.sleep(5000);
+                    bookInfo = getBookInfo(barcode);
+                    if(bookInfo==null){
+                        return null;
+                    }
+                }
                 bookInfo.tagId = epc;
                 insertBookInfo(bookInfo);
             }

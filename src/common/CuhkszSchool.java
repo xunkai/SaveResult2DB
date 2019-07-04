@@ -16,6 +16,9 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static utils.MyLogger.LOGGER;
+import static utils.MyLogger.getTrace;
+
 public class CuhkszSchool {
     public static int MAX_LOSS_DAY = 7;
     public static String SCHOOL_CODE = "CUHKSZ";
@@ -42,35 +45,41 @@ public class CuhkszSchool {
     }
 
 
-    public static BookInfo getBookInfo(String barcode) throws IOException, ParserConfigurationException, SAXException {
+    public static BookInfo getBookInfo(String barcode) {
         String url = "https://api-ap.hosted.exlibrisgroup.com/almaws/v1/items?item_barcode=" + barcode + "&apikey=l8xx004d38e90a564ddeb8f707edee0bb419";
         HttpClient client = HttpClients.createDefault();
         HttpGet get = new HttpGet(url);
-        HttpResponse res = client.execute(get);
-        HttpEntity entity = res.getEntity();
         BookInfo bookInfo = new BookInfo();
-        if (null != entity) {
-            InputStream in = entity.getContent();//将返回的内容流入输入流内
+        HttpResponse res = null;
+        try {
+            res = client.execute(get);
+            HttpEntity entity = res.getEntity();
+            if (null != entity) {
+                InputStream in = entity.getContent();//将返回的内容流入输入流内
 
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(in);//用输入流实例化Document
+                DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                DocumentBuilder builder = factory.newDocumentBuilder();
+                Document document = builder.parse(in);//用输入流实例化Document
 
-            Element rootElement = document.getDocumentElement();
+                Element rootElement = document.getDocumentElement();
 
-            NodeList bibDatas = rootElement.getElementsByTagName("bib_data");
-            Element bibData = (Element) bibDatas.item(0);
-            //String newTitle = bibData.getAttribute("title");
-            bookInfo.bookName = bibData.getElementsByTagName("title").item(0).getTextContent();
+                NodeList bibDatas = rootElement.getElementsByTagName("bib_data");
+                Element bibData = (Element) bibDatas.item(0);
+                //String newTitle = bibData.getAttribute("title");
+                bookInfo.bookName = bibData.getElementsByTagName("title").item(0).getTextContent();
 
-            NodeList holding_datas = rootElement.getElementsByTagName("holding_data");
-            Element holding_data = (Element) holding_datas.item(0);
-            bookInfo.bookIndex = holding_data.getElementsByTagName("call_number").item(0).getTextContent();
+                NodeList holding_datas = rootElement.getElementsByTagName("holding_data");
+                Element holding_data = (Element) holding_datas.item(0);
+                bookInfo.bookIndex = holding_data.getElementsByTagName("call_number").item(0).getTextContent();
 
-            NodeList item_datas = rootElement.getElementsByTagName("item_data");
-            Element item_data = (Element) item_datas.item(0);
-            bookInfo.barcode = item_data.getElementsByTagName("barcode").item(0).getTextContent();
+                NodeList item_datas = rootElement.getElementsByTagName("item_data");
+                Element item_data = (Element) item_datas.item(0);
+                bookInfo.barcode = item_data.getElementsByTagName("barcode").item(0).getTextContent();
 
+            }
+        } catch (Exception e) {
+            LOGGER.error(getTrace(e));
+            return null;
         }
         return bookInfo;
     }
