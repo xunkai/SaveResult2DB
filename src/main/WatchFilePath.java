@@ -7,6 +7,7 @@ import java.nio.file.*;
 
 import static java.nio.file.StandardWatchEventKinds.*;
 
+import common.CuhkszSchool;
 import utils.Config;
 
 import static utils.FileUtil.deleteExpiredFile;
@@ -87,7 +88,7 @@ public class WatchFilePath {
                         resFile = PATH + File.separator + fileName;
                         floor = fileName.substring(0,2);
                         isRes = true;
-                        LOGGER.info("检测到res文件，等待传输完成...");
+                        LOGGER.info("检测到res文件:" + fileName + "，等待传输完成...");
                     }
 
 
@@ -101,14 +102,13 @@ public class WatchFilePath {
             File[] files = new File(PATH).listFiles();
             for(File file:files){
                 if(file.getName().equals(END_FILE)){
-
                     // 监听到结束标志文件创建
                     LOGGER.info("检测到end文件，等待解析...");
                     Thread.sleep(100);
 
                     // 删除结束标志文件
                     deleteFile(PATH+File.separator+END_FILE);
-                    Config.MAIL.sendEmail(floor+",Report generation starts", "已经监听到res文件，即将生成报表，请稍候！");
+                    Config.MAIL.sendEmail(CuhkszSchool.SCHOOL_CODE + "," + floor + ",Report generation starts", "已经监听到res文件:" + resFile + "，即将生成报表，请稍候！");
                     Res2Database res2Database = new Res2Database(resFile);
                     resFile = "";
                     isRes = false;
@@ -127,9 +127,9 @@ public class WatchFilePath {
      * @throws InterruptedException
      */
     public static void main(String[] args) throws IOException, InterruptedException {
-        String Version = "1.14";
-        String Time = "2019/5/26 19:30";
-        String Update = "增加了丢失报表的新计算方法";
+        String Version = "1.15";
+        String Time = "2019/5/29 13:30";
+        String Update = "修复了丢失报表为0的bug";
         LOGGER.info("Version: " + Version);
         LOGGER.info("Update at " + Time);
         LOGGER.info("Updating info " + Update);
@@ -138,8 +138,8 @@ public class WatchFilePath {
         LOGGER.info("清理过期文件");
         deleteExpiredFile(Config.DESKTOP_PATH + "\\Tooker\\result", 60);
         deleteExpiredFile(Config.DESKTOP_PATH + "\\Tooker\\data", 60);
-        deleteExpiredFile(Config.DESKTOP_PATH + "\\Tooker\\log_I&Q", 60);
-        deleteExpiredFile(Config.DESKTOP_PATH + "\\Tooker\\Report\\log\\", 60);
+        deleteExpiredFile(Config.DESKTOP_PATH + "\\Tooker\\log_I&Q", 30);
+        deleteExpiredFile(Config.DESKTOP_PATH + "\\Tooker\\Report\\log\\", 30);
 
         LOGGER.info("清理上次传输文件夹");
         deleteFile(Config.DESKTOP_PATH+"\\Tooker\\Config_I&Q\\failed_files");
@@ -148,18 +148,18 @@ public class WatchFilePath {
 
         deleteFile(Config.REPORT_END_PATH);
 
-        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
-        File file = new File(filepath);
-        if (!file.exists()) {
-            file.mkdirs();
-        }
-        new WatchFilePath(Paths.get(filepath)).handleEvents();
+//        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
+//        File file = new File(filepath);
+//        if (!file.exists()) {
+//            file.mkdirs();
+//        }
+//        new WatchFilePath(Paths.get(filepath)).handleEvents();
 
         //test
-//        Res2Database res2Database = new Res2Database(
-////                修改这个
-////                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
-//                "E:\\whu\\2\\result\\A3_2019-05-21_22-10-02_full.res");
+        Res2Database res2Database = new Res2Database(
+//                修改这个
+//                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
+                "D:\\Wing\\图书馆项目\\香港中文大学（深圳）\\A4_2019-06-30_15-28-32_full.res");
     }
 }
 

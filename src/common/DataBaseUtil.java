@@ -54,7 +54,7 @@ public class DataBaseUtil {
     public static ResultSet resultSet = null;
 
 
-    public static void getDBConnection() {
+    public static boolean getDBConnection() {
         try {
             Class.forName("oracle.jdbc.driver.OracleDriver");
         } catch (ClassNotFoundException e) {
@@ -68,8 +68,10 @@ public class DataBaseUtil {
 //            LOGGER.info(url);
             connect = DriverManager.getConnection(url, USERNAME, PASSWORD);
         } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
+            LOGGER.error(getTrace(e));
+            return false;
         }
+        return true;
     }
 
     public static void closeDBConnection() {
@@ -79,19 +81,52 @@ public class DataBaseUtil {
         try {
             connect.close();
         } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
+            LOGGER.error(getTrace(e));
         }
     }
 
-    public static void createStatement() {
-        try {
-            if (connect.isClosed()) {
-                getDBConnection();
+    public static boolean createStatement() {
+        if (getDBConnection()) {
+            try {
+                statement = connect.createStatement();
+            } catch (SQLException e) {
+                LOGGER.error(getTrace(e));
+                return false;
             }
-            statement = connect.createStatement();
-        } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
+            return true;
         }
+        return false;
+    }
+
+    /**
+     * 尝试重新连接数据库，请求三次
+     *
+     * @return
+     */
+    public static boolean tryCreateStatement() {
+        int tryCount = 3;
+        while (true) {
+            if (!getDBConnection()) {
+                tryCount--;
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                if (tryCount < 0) {
+                    break;
+                }
+            } else {
+                try {
+                    statement = connect.createStatement();
+                } catch (SQLException e) {
+                    LOGGER.error(getTrace(e));
+                    return false;
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void closeStatement() {
@@ -103,8 +138,9 @@ public class DataBaseUtil {
                 statement.close();
             }
         } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
+            LOGGER.error(getTrace(e));
         }
+        closeDBConnection();
     }
 
     public static void closeResultSet() {
@@ -116,7 +152,7 @@ public class DataBaseUtil {
                 resultSet.close();
             }
         } catch (SQLException e) {
-            LOGGER.error(e.getMessage());
+            LOGGER.error(getTrace(e));
         }
     }
 }

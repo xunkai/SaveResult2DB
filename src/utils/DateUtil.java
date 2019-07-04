@@ -1,7 +1,12 @@
 package utils;
 
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+
+import static utils.MyLogger.LOGGER;
 
 /**
  * 日期工具类
@@ -27,6 +32,39 @@ public class DateUtil {
         cal.setTime(date);
         int w = cal.get(Calendar.DAY_OF_WEEK) - 1;
         return w;
+    }
+
+
+    /**
+     * 获取当前时间字符串，刑如yyyy-MM-dd HH:mm:ss
+     *
+     * @return
+     */
+    public static String getFormatDateString() {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return dateFormat.format(new Date());
+    }
+
+    /**
+     * 以特定格式获取当前时间字符串
+     *
+     * @param format
+     * @return
+     */
+    public static String getFormatDateString(String format) {
+        DateFormat dateFormat = new SimpleDateFormat(format);
+        return dateFormat.format(new Date());
+    }
+
+    public static long getTimeFromString(String time) {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        long t = 0;
+        try {
+            t = dateFormat.parse(time).getTime();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return t;
     }
 
     public static void main(String[] args) {

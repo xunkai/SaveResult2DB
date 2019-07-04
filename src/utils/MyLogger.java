@@ -32,7 +32,7 @@ public class MyLogger {
 
         buffer.append("Exception");
         for (String s : str) {
-            if (buffer.length() > 5) {
+            if (buffer.length() > 100) {
                 break;
             }
             buffer.append("\r\n\t").append(s);

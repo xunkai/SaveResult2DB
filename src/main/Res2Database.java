@@ -1,9 +1,6 @@
 package main;
 
-import common.BookIndex;
-import common.BookInfo;
-import common.BookLoss;
-import common.DataBaseUtil;
+import common.*;
 import utils.Config;
 import utils.FileUtil;
 import utils.GUI;
@@ -20,6 +17,9 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 
+import static common.BookLocation.decodeLocation;
+import static common.BookLocation.encodeLocation;
+import static common.CuhkszSchool.getBarcodeFromEpc;
 import static common.DataBaseUtil.*;
 import static utils.Config.CHECK_LOSS;
 import static utils.FileUtil.*;
@@ -79,7 +79,7 @@ public class Res2Database {
     /**
      * 表格列宽
      */
-    private static int[] EXCEL_LENGTH = {20, 25, 80, 6, 6, 6, 6, 6, 15, 15};
+    private static int[] EXCEL_LENGTH = {10, 25, 80, 4, 4, 4, 4, 6, 11, 7, 7, 7, 7};
     /**
      * 错误馆藏地图书，存储的是tag id ,馆藏地
      */
@@ -100,7 +100,7 @@ public class Res2Database {
      * 丢失书籍集合
      */
     private Map<String, BookInfo> lossMap;
-    private BookLoss bookLoss;
+//    private BookLoss bookLoss;
     /**
      * TAG_ID异常图书，存储的是tag id
      */
@@ -125,11 +125,11 @@ public class Res2Database {
     /**
      * 书的集合
      */
-    private Map<String, String[]> bookMap;
+    private Map<String, BookInfo> bookMap;
     /**
      * 书的有序列表
      */
-    private List<Map.Entry<String, String[]>> bookList;
+    private List<Map.Entry<String, BookInfo>> bookList;
     /**
      * 首书列表
      */
@@ -149,7 +149,6 @@ public class Res2Database {
     /**
      * 错误等级说明
      */
-    private static final String[] ERROR_LEVEL = {"暂无实际位置", "位置正确", "区域错误", "楼层错误", "列错误", "排错误", "架错误", "层错误", "顺序错误"};
 
     /**
      * 当前楼层
@@ -213,10 +212,11 @@ public class Res2Database {
         String resName = new File(resPath).getName();
         if (resName.length() < 15) {
             LOGGER.warn("res文件命名不规范：" + resName);
+            return;
         } else {
             REPORT_DATE = resName.substring(3, 13);
         }
-        bookLoss = new BookLoss(REPORT_DATE);
+//        bookLoss = new BookLoss(REPORT_DATE);
         String fileName = resPath.replaceAll("^.+\\\\", "").replace(".res", ".xls");
         String lossFileName = fileName.replace(".xls", "_loss.xls");
         String fileDir = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\报表";
@@ -231,34 +231,32 @@ public class Res2Database {
         FLOOR = Integer.parseInt(reportFile.getName().substring(1, 2));
         initFromXml();
         LOGGER.info("从XML中初始化设置成功！");
-        if (Config.UPDATE_DATABASE) {
-            getToBeUpdatedList();
-        }
-        getAllLoanHoldList();
-        getStatusAbnormalList();
-//        getLossList();
-        //重置前两天出丢失报表
-//        CHECK_LOSS = getCurrentWeek() == Config.LOSS_RESET_WEEK || getCurrentWeek() == Config.LOSS_RESET_WEEK - 1;
+//        if (Config.UPDATE_DATABASE) {
+//            getToBeUpdatedList();
+//        }
+//        getAllLoanHoldList();
+//        getStatusAbnormalList();
         processRes();
         if (RES_ILLEGAL) {
             LOGGER.warn("res异常，程序中断");
             return;
         }
+//        if (bookInfosTxt.size() == 0) {
+//            LOGGER.warn("数据库图书信息获取失败！");
+//            Config.MAIL.sendEmail(CuhkszSchool.SCHOOL_CODE + ",A" + FLOOR + ",Error", "数据库图书信息获取失败！");
+//            return;
+//        }
         //生成报表
         if (CHECK_LOSS) {
             getLossList();
             generateLossReport();
         }
-        generateReportTemp();
+        generateReport();
         zipSend();
         GUI.showCustomDialog(null, null, "报表已生成，数据库更新中...");
         if (Config.UPDATE_DATABASE) {
             write2DB();
         }
-        //重置LOSS
-//        if (getCurrentWeek() == Config.LOSS_RESET_WEEK) {
-//            resetDatabaseLoss();
-//        }
         GUI.showCustomDialog(null, null, "数据库更新完毕");
         FileUtil.createFile(Config.REPORT_END_PATH);
     }
@@ -289,128 +287,128 @@ public class Res2Database {
     }
 
     /**
-     * method_name: initFromXml
+     * method_name: OptimizingLeakageRate
      * 使用之前的res数据来优化漏读率
      *
      * @author Wing
      * date: 2019/1/10
      * time: 14:56
      */
-    private void OptimizingLeakageRate() {
-        LOGGER.info("优化漏读率...");
-        int day = 5;
-        File resFile = new File(resPath);
-        File resdir = resFile.getParentFile();
-        List<File> resFiles = getAllFiles(resdir, day);
-        //去除当前res
-        resFiles.remove(resFile);
-        LOGGER.info("读取之前" + day + "天res文件...");
-        List<String> result = new ArrayList<>();
-        for (File file : resFiles) {
-            if (file.getName().matches("A" + FLOOR + ".*")) {
-                result.addAll(readFileByLine(file.getPath()));
-            }
-        }
-        if (result.size() < 2) {
-            LOGGER.warn("res异常");
-            return;
-        }
-        Map<String, String[]> formerBookMap = new TreeMap<>();
-        LOGGER.info("共有" + result.size() + "条待处理");
-        String[] resIn;
-
-        int i = 0;
-        int countRC = 0, countQuery = 0;
-        LOGGER.info("连接数据库...");
-        getDBConnection();
-        LOGGER.info("连接成功...");
-        try {
-            statement = connect.createStatement();
-            for (String data : result) {
-                data = data.replaceAll("[^\\w|\\d| ]", "");
-                String[] bookInfos = new String[BOOK_FIELD_NUM];
-                resIn = data.split(" ");
-                String tagID = resIn[0];
-                if (tagID.length() > 0) {
-                    //处理借出图书，将首位8改为0
-                    char[] arr = tagID.toCharArray();
-                    arr[0] = arr[0] == '8' ? '0' : arr[0];
-                    tagID = new String(arr);
-                    if (tagID.matches("^CD[\\d\\w]+$")) {
-                        countRC++;
-                        LOGGER.info("层架标：" + tagID);
-                        continue;
-                    }
-                }
-                if (resIn.length != 10) {
-                    System.out.println(resIn.length);
-                    LOGGER.info("TAG_ID:" + tagID + "数据异常");
-                    continue;
-                }
-                System.arraycopy(resIn, 1, bookInfos, BookFieldName.AREANO.getIndex(), FIELD_NUM - 1);
-                String[] tmp = bookInfosTxt.get(tagID);
-                if (tmp == null) {
-                    //WL30无此书,查询所有库
-//                    tmp = getBookInfo(tagID);
-                    tmp = new String[4];
-                    tmp[0] = null;
-                    String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
-                            "" + "" + "= '" + tagID + "'";
-                    resultSet = statement.executeQuery(sql);
-                    if (resultSet.next()) {
-                        tmp[0] = resultSet.getString(BookFieldName.BOOK_ID.getName());
-                        tmp[1] = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
-                        tmp[3] = resultSet.getString(BookFieldName.BOOK_NAME.getName());
-                        tmp[2] = resultSet.getString("CURRENT_LIBRARY");
-                    }
-                    countQuery++;
-                    continue;
-                }
-                bookInfos[0] = tmp[0];
-                bookInfos[1] = tmp[1];
-                bookInfos[2] = tmp[3];
-                if (bookInfos[1] == null || bookInfos[0] == null) {
-                    //数据库无此书
-                    LOGGER.warn("数据库未找到TagID=" + tagID + "的书");
-                    bookInfos[0] = "数据库未找到";
-                    bookInfos[1] = "";
-                    bookInfos[2] = "";
-                    formerBookMap.put(tagID, bookInfos);
-//                    countQuery++;
-                    continue;
-                }
-                if (isForeignBook(bookInfos[1], bookInfos[2])) {
-                    LOGGER.info("外文书：" + bookInfos[2]);
-                    continue;
-                }
-                formerBookMap.put(tagID, bookInfos);
-                i++;
-                if (i % 1000 == 0) {
-                    LOGGER.info("已处理" + i);
-                }
-            }
-            statement.close();
-            connect.close();
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
-        }
-        LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
-        int countOptimization = 0;
-        Map<String, BookInfo> lossMapCopy = new TreeMap<>();
-        lossMapCopy.putAll(lossMap);
-        for (Map.Entry<String, BookInfo> entry : lossMapCopy.entrySet()) {
-            String tagID = entry.getKey();
-            if (formerBookMap.containsKey(tagID)) {
-                //之前读到
-                bookMap.put(tagID, formerBookMap.get(tagID));
-                lossMap.remove(tagID);
-                countOptimization++;
-            }
-        }
-        formerBookMap.clear();
-        LOGGER.info("减少漏读" + countOptimization + "本");
-
-    }
+//    private void OptimizingLeakageRate() {
+//        LOGGER.info("优化漏读率...");
+//        int day = 5;
+//        File resFile = new File(resPath);
+//        File resdir = resFile.getParentFile();
+//        List<File> resFiles = getAllFiles(resdir, day);
+//        //去除当前res
+//        resFiles.remove(resFile);
+//        LOGGER.info("读取之前" + day + "天res文件...");
+//        List<String> result = new ArrayList<>();
+//        for (File file : resFiles) {
+//            if (file.getName().matches("A" + FLOOR + ".*")) {
+//                result.addAll(readFileByLine(file.getPath()));
+//            }
+//        }
+//        if (result.size() < 2) {
+//            LOGGER.warn("res异常");
+//            return;
+//        }
+//        Map<String, String[]> formerBookMap = new TreeMap<>();
+//        LOGGER.info("共有" + result.size() + "条待处理");
+//        String[] resIn;
+//
+//        int i = 0;
+//        int countRC = 0, countQuery = 0;
+//        LOGGER.info("连接数据库...");
+//        if (createStatement()) {
+//            try {
+//                for (String data : result) {
+//                    data = data.replaceAll("[^\\w|\\d| ]", "");
+//                    String[] bookInfos = new String[BOOK_FIELD_NUM];
+//                    resIn = data.split(" ");
+//                    String tagID = resIn[0];
+//                    if (tagID.length() > 0) {
+//                        //处理借出图书，将首位8改为0
+//                        char[] arr = tagID.toCharArray();
+//                        arr[0] = arr[0] == '8' ? '0' : arr[0];
+//                        tagID = new String(arr);
+//                        if (tagID.matches("^CD[\\d\\w]+$")) {
+//                            countRC++;
+//                            LOGGER.info("层架标：" + tagID);
+//                            continue;
+//                        }
+//                    }
+//                    if (resIn.length != 10) {
+//                        System.out.println(resIn.length);
+//                        LOGGER.info("TAG_ID:" + tagID + "数据异常");
+//                        continue;
+//                    }
+//                    System.arraycopy(resIn, 1, bookInfos, BookFieldName.AREANO.getIndex(), FIELD_NUM - 1);
+//                    String[] tmp = bookInfosTxt.get(tagID);
+//                    if (tmp == null) {
+//                        //WL30无此书,查询所有库
+////                    tmp = getBookInfo(tagID);
+//                        tmp = new String[4];
+//                        tmp[0] = null;
+//                        String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
+//                                "" + "" + "= '" + tagID + "'";
+//                        resultSet = statement.executeQuery(sql);
+//                        if (resultSet.next()) {
+//                            tmp[0] = resultSet.getString(BookFieldName.BOOK_ID.getName());
+//                            tmp[1] = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
+//                            tmp[3] = resultSet.getString(BookFieldName.BOOK_NAME.getName());
+//                            tmp[2] = resultSet.getString("CURRENT_LIBRARY");
+//                        }
+//                        countQuery++;
+//                        continue;
+//                    }
+//                    bookInfos[0] = tmp[0];
+//                    bookInfos[1] = tmp[1];
+//                    bookInfos[2] = tmp[3];
+//                    if (bookInfos[1] == null || bookInfos[0] == null) {
+//                        //数据库无此书
+//                        LOGGER.warn("数据库未找到TagID=" + tagID + "的书");
+//                        bookInfos[0] = "数据库未找到";
+//                        bookInfos[1] = "";
+//                        bookInfos[2] = "";
+//                        formerBookMap.put(tagID, bookInfos);
+////                    countQuery++;
+//                        continue;
+//                    }
+////                    if (isForeignBook(bookInfos[1], bookInfos[2])) {
+////                        LOGGER.info("外文书：" + bookInfos[2]);
+////                        continue;
+////                    }
+//                    formerBookMap.put(tagID, bookInfos);
+//                    i++;
+//                    if (i % 1000 == 0) {
+//                        LOGGER.info("已处理" + i);
+//                    }
+//                }
+//                statement.close();
+//                connect.close();
+//            } catch (SQLException e) {
+//                LOGGER.error(getTrace(e));
+//            }
+//        } else {
+//            LOGGER.warn("数据库连接失败");
+//        }
+//        LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;有" + countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
+//        int countOptimization = 0;
+//        Map<String, BookInfo> lossMapCopy = new TreeMap<>();
+//        lossMapCopy.putAll(lossMap);
+//        for (Map.Entry<String, BookInfo> entry : lossMapCopy.entrySet()) {
+//            String tagID = entry.getKey();
+//            if (formerBookMap.containsKey(tagID)) {
+//                //之前读到
+//                bookMap.put(tagID, formerBookMap.get(tagID));
+//                lossMap.remove(tagID);
+//                countOptimization++;
+//            }
+//        }
+//        formerBookMap.clear();
+//        LOGGER.info("减少漏读" + countOptimization + "本");
+//    }
 
     /**
      * 重置楼层：FLOOR的丢失状态为丢失
@@ -421,9 +419,6 @@ public class Res2Database {
     private void resetDatabaseLoss() {
         String[] floorBookIndex = {"A-E", "E-H", "I-M", "N-Z"};
         LOGGER.info("重置数据中" + FLOOR + "层丢失数据...");
-        LOGGER.info("连接数据库...");
-        getDBConnection();
-        LOGGER.info("连接成功...");
         createStatement();
         if (statement == null) {
             LOGGER.error("statement创建失败！");
@@ -444,29 +439,64 @@ public class Res2Database {
      * 从数据库中获取当前楼层所有图书信息
      */
     private void getAllBookInfoFromDB() {
+        boolean success = false;
+        int tryCount = 0;
         String sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
                 DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
                 " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^[" + BookIndex.FLOOR_BOOK_INDEX[FLOOR - 2] + "]')";
         LOGGER.info("连接数据库,获取A区" + FLOOR + "楼图书信息...");
-        getDBConnection();
-        createStatement();
-        try {
-            resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
-                String tagID = resultSet.getString("TAG_ID");
-                String bookID = resultSet.getString("BOOK_ID");
-                String bookIndex = resultSet.getString("BOOK_INDEX");
-                String bookName = resultSet.getString("BOOK_NAME");
-                String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
-                String[] tmp = {bookID, bookIndex, currentLibrary, bookName};
-                bookInfosTxt.put(tagID, tmp);
+        while (tryCreateStatement() && !success && tryCount <= 3) {
+            tryCount++;
+            try {
+                resultSet = statement.executeQuery(sql);
+                while (resultSet.next()) {
+                    String tagID = resultSet.getString("TAG_ID");
+                    String bookID = resultSet.getString("BOOK_ID");
+                    String bookIndex = resultSet.getString("BOOK_INDEX");
+                    String bookName = resultSet.getString("BOOK_NAME");
+                    String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
+                    String[] tmp = {bookID, bookIndex, currentLibrary, bookName};
+                    bookInfosTxt.put(tagID, tmp);
+                }
+            } catch (SQLException e) {
+                LOGGER.error(getTrace(e));
+                success = false;
+                LOGGER.warn("数据未成功获取，再次尝试中");
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
+            closeResultSet();
+            closeStatement();
+            success = true;
         }
-        closeResultSet();
-        closeStatement();
-        closeDBConnection();
+        if (FLOOR == 5) {
+            //5楼还需要读取WL32 33
+            success = false;
+            tryCount = 0;
+            sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
+                    DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
+                    " WHERE CURRENT_LIBRARY= 'WL32' or CURRENT_LIBRARY= 'WL33'";
+            while (tryCreateStatement() && !success && tryCount <= 3) {
+                tryCount++;
+                try {
+                    resultSet = statement.executeQuery(sql);
+                    while (resultSet.next()) {
+                        String tagID = resultSet.getString("TAG_ID");
+                        String bookID = resultSet.getString("BOOK_ID");
+                        String bookIndex = resultSet.getString("BOOK_INDEX");
+                        String bookName = resultSet.getString("BOOK_NAME");
+                        String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
+                        String[] tmp = {bookID, bookIndex, currentLibrary, bookName};
+                        bookInfosTxt.put(tagID, tmp);
+                    }
+                } catch (SQLException e) {
+                    LOGGER.error(getTrace(e));
+                    success = false;
+                    LOGGER.warn("数据未成功获取，再次尝试中");
+                }
+                closeResultSet();
+                closeStatement();
+                success = true;
+            }
+        }
         LOGGER.info("获取A区" + FLOOR + "楼图书完毕，图书共" + bookInfosTxt.size() + "册");
     }
 
@@ -492,11 +522,11 @@ public class Res2Database {
      */
     private void processRes() {
         bookInfosTxt = new TreeMap<>();
-        if (ENABLE_DATABASE == 0) {
-            getAllBookInfoFromTxt();
-        } else {
-            getAllBookInfoFromDB();
-        }
+//        if (ENABLE_DATABASE == 0) {
+//            getAllBookInfoFromTxt();
+//        } else {
+//            getAllBookInfoFromDB();
+//        }
         LOGGER.info("读取res文件...");
         bookMap = new TreeMap<>();
         List<String> result = readFileByLine(resPath);
@@ -510,238 +540,50 @@ public class Res2Database {
 
         int i = 0;
         int countRC = 0, countQuery = 0;
-        LOGGER.info("连接数据库...");
-        getDBConnection();
-        LOGGER.info("连接成功...");
-        try {
-            statement = connect.createStatement();
-            for (String data : result) {
-                data = data.replaceAll("[^\\w|\\d| ]", "");
-                String[] bookInfos = new String[BOOK_FIELD_NUM];
-//                resInfo[i] = data.split(" ");
-//                String tagID = resInfo[i][0];
-                resIn = data.split(" ");
-                String tagID = resIn[0];
-                if (tagID.length() > 0) {
-                    //处理借出图书，将首位8改为0
-                    char[] arr = tagID.toCharArray();
-                    arr[0] = arr[0] == '8' ? '0' : arr[0];
-                    tagID = new String(arr);
-                    if (tagID.matches("^CD[\\d\\w]+$")) {
-                        countRC++;
-                        LOGGER.info("层架标：" + tagID);
-                        continue;
-                    }
-                }
-                if (resIn.length != 10) {
-                    System.out.println(resIn.length);
-                    LOGGER.info("TAG_ID:" + tagID + "数据异常");
-                    continue;
-                }
-                System.arraycopy(resIn, 1, bookInfos, BookFieldName.AREANO.getIndex(), FIELD_NUM - 1);
-                String[] tmp = bookInfosTxt.get(tagID);
-                if (tmp == null) {
-                    //WL30无此书,查询所有库
-//                    tmp = getBookInfo(tagID);
-                    tmp = new String[4];
-                    tmp[0] = null;
-                    String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
-                            "" + "" + "= '" + tagID + "'";
-                    resultSet = statement.executeQuery(sql);
-                    if (resultSet.next()) {
-                        tmp[0] = resultSet.getString(BookFieldName.BOOK_ID.getName());
-                        tmp[1] = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
-                        tmp[3] = resultSet.getString(BookFieldName.BOOK_NAME.getName());
-                        tmp[2] = resultSet.getString("CURRENT_LIBRARY");
-                    }
-                    countQuery++;
-                    if (countQuery % 100 == 0) {
-                        LOGGER.info("已额外查询" + countQuery);
-                    }
-                }
-                bookInfos[0] = tmp[0];
-                bookInfos[1] = tmp[1];
-                bookInfos[2] = tmp[3];
-                if (bookInfos[1] == null || bookInfos[0] == null) {
-                    //数据库无此书
-                    countNotInDB++;
-                    LOGGER.warn("数据库未找到TagID=" + tagID + "的书");
-                    bookInfos[0] = "数据库未找到";
-                    bookInfos[1] = "";
-                    bookInfos[2] = "";
-                    bookMap.put(tagID, bookInfos);
-                    tagAbnormalBookList.add(tagID);
-                    continue;
-                }
-                if (isForeignBook(bookInfos[1], bookInfos[2])) {
-                    countForeign++;
-                    LOGGER.info("外文书：" + bookInfos[2]);
-                    continue;
-                }
-
-                bookMap.put(tagID, bookInfos);
-                bookLoss.updateDate(tagID, bookInfos[1]);
-                //也需要更新非本层图书的数据库信息
-                if (lossMap.containsKey(tagID) || !BookIndex.isFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()], FLOOR)) {
-                    lossMap.remove(tagID);
-                    //更新丢失列表
-                    String sql = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET IS_LOSS=1 WHERE TAG_ID = '" + tagID + "'";
-                    statement.executeQuery(sql);
-                }
-                //错误馆藏地的图书
-//                if (tmp[2] == null) {
-//                    LOGGER.warn("TagID=" + tagID + "的书,CURRENT_LIBRARY为空");
-//                } else
-                if (!"WL30".equals(tmp[2])) {
-                    errorLibBookMap.put(tagID, tmp[2]);
-                }
-                //借出预约列表
-                if (allLoanBookMap.containsKey(bookInfos[0])) {
-                    loanBookList.add(tagID);
-                } else if (allHoldBookMap.containsKey(bookInfos[0])) {
-                    holdBookList.add(tagID);
-                }
-                countSuccess++;
-                i++;
-                if (i % 1000 == 0) {
-                    LOGGER.info("已处理" + i);
-                }
+        long timeStart = System.currentTimeMillis();
+        for (String data : result) {
+            data = data.replaceAll("[^\\w|\\d| ]", "");
+            resIn = data.split(" ");
+            String tagID = resIn[0];
+            if (resIn.length != 10) {
+                LOGGER.warn("length:" + resIn.length);
+                LOGGER.warn("TAG_ID:" + tagID + "数据异常");
+                continue;
             }
-            statement.close();
-            connect.close();
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
+            String[] tmp = new String[resIn.length - 1];
+            System.arraycopy(resIn, 1, tmp, 0, tmp.length);
+            //RES文件内容规则
+            BookLocation bookLocation = new BookLocation(
+                    resIn[1], resIn[2],
+                    resIn[3], resIn[4],
+                    resIn[5], resIn[6],
+                    resIn[7], resIn[9]);
+            BookInfo bookInfo = SQLiteUtil.queryBook(tagID);
+            if (bookInfo == null) {
+                //数据库无此书
+                countNotInDB++;
+                LOGGER.warn("数据库未找到TagID=" + tagID + "的书");
+                bookInfo = new BookInfo(tagID, "数据库未找到", "", "");
+                tagAbnormalBookList.add(tagID);
+            }
+            bookInfo.location = bookLocation;
+            bookInfo.isError = resIn[8].equals("1");
+            bookMap.put(tagID, bookInfo);
+            countSuccess++;
+            i++;
+            if (i % 1000 == 0) {
+                LOGGER.info("已处理" + i);
+            }
+
         }
-        bookLoss.saveBookLossDate();
+
+        long timeEnd = System.currentTimeMillis();
+        LOGGER.info("用时：" + (timeEnd - timeStart) / 1000);
+
         LOGGER.info("额外查询数据库" + countQuery + "次;有" + countRC + "个层架标;");
         LOGGER.info("有" + countNotInDB + "个EPC不在数据库中;有" + countForeign + "外文书;" + countSuccess + "本书处理成功！");
 //        OptimizingLeakageRate();
 //        bookInfosTxt.clear();
-        sortBooks();
-        getFirstBooks();
-    }
-
-    /**
-     * 从数据库中获取图书信息
-     */
-    private void getResInfo() {
-        LOGGER.info("获取图书信息...");
-        LOGGER.info("连接数据库...");
-        bookMap = new TreeMap<>();
-        LOGGER.info("读取res文件...");
-        List<String> result = readFileByLine(resPath);
-        LOGGER.info("共有" + result.size() + "条待处理");
-//            resInfo = new String[result.size()][];
-        String[] resIn;
-        int i = 0;
-        countNotInDB = 0;
-        int countRC = 0;
-        countSuccess = 0;
-        getDBConnection();
-        createStatement();
-        for (String data : result) {
-            data = data.replaceAll("[^\\w|\\d| ]", "");
-            String[] bookInfos = new String[BOOK_FIELD_NUM];
-//                resInfo[i] = data.split(" ");
-//                String tagID = resInfo[i][0];
-            resIn = data.split(" ");
-            String tagID = resIn[0];
-            if (tagID.length() > 0) {
-                //处理借出图书，将首位8改为0
-                char[] arr = tagID.toCharArray();
-                arr[0] = arr[0] == '8' ? '0' : arr[0];
-                tagID = new String(arr);
-                if (tagID.matches("^CD[\\d\\w]+$")) {
-                    //排除层架标
-                    countRC++;
-                    LOGGER.info("层架标：" + tagID);
-                    continue;
-                }
-            }
-            if (resIn.length < 10) {
-                System.out.println(resIn.length);
-                LOGGER.info("TAG_ID:" + tagID + "数据异常");
-                continue;
-            }
-            String sql;
-            System.arraycopy(resIn, 1, bookInfos, BookFieldName.AREANO.getIndex(), FIELD_NUM - 1);
-            sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID = '" + tagID + "'";
-
-            try {
-                resultSet = statement.executeQuery(sql);
-                if (resultSet.next()) {
-                    bookInfos[0] = resultSet.getString("BOOK_ID");
-                    bookInfos[1] = resultSet.getString("BOOK_INDEX");
-                    bookInfos[2] = resultSet.getString("BOOK_NAME");
-                    String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
-                    if (bookInfos[1] == null || bookInfos[0] == null) {
-                        //数据库无此书
-                        countNotInDB++;
-                        LOGGER.warn("数据库未找到TagID=" + tagID + "的书");
-                        bookInfos[0] = "数据库未找到";
-                        bookInfos[1] = "";
-                        bookInfos[2] = "";
-                        bookMap.put(tagID, bookInfos);
-                        tagAbnormalBookList.add(tagID);
-                        continue;
-                    }
-                    bookMap.put(tagID, bookInfos);
-                    if (lossMap.containsKey(tagID) || !BookIndex.isFloor(bookInfos[BookFieldName.BOOK_INDEX.getIndex()], FLOOR)) {
-//                        BookInfo bookInfo = new BookInfo(tagID, bookInfos[0], bookInfos[1], bookInfos[2]);
-//                        lossList.remove(bookInfo);
-//                        lossSet.remove(bookInfos[0]);
-                        lossMap.remove(tagID);
-                        //更新丢失列表
-                        sql = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET IS_LOSS=1 WHERE TAG_ID = '" + tagID + "'";
-                        statement.executeQuery(sql);
-                    }
-
-//                    if(tagID.startsWith("010200A18C2300414C7A0200")){
-//                        LOGGER.info(sql);
-//                    }
-                    //错误馆藏地的图书
-                    if (currentLibrary == null) {
-                        LOGGER.warn("TagID=" + tagID + "的书,CURRENT_LIBRARY为空");
-                    }
-                    if (currentLibrary != null && !currentLibrary.equals("WL30")) {
-                        errorLibBookMap.put(tagID, currentLibrary);
-                    }
-                    //借出预约列表
-                    if (allLoanBookMap.containsKey(bookInfos[0])) {
-                        loanBookList.add(tagID);
-                    } else if (allHoldBookMap.containsKey(bookInfos[0])) {
-                        holdBookList.add(tagID);
-                    }
-
-                } else {
-                    //数据库无此书
-                    countNotInDB++;
-                    LOGGER.warn("数据库未找到TagID=" + tagID + "的书");
-                    bookInfos[0] = "数据库未找到";
-                    bookInfos[1] = "";
-                    bookInfos[2] = "";
-                    bookMap.put(tagID, bookInfos);
-                    tagAbnormalBookList.add(tagID);
-                    continue;
-                }
-                resultSet.close();
-            } catch (SQLException e) {
-                LOGGER.error(e.getMessage());
-                LOGGER.info("尝试重连");
-                closeStatement();
-                closeDBConnection();
-                getDBConnection();
-                createStatement();
-            }
-            i++;
-            countSuccess++;
-            if (i % 1000 == 0) {
-                LOGGER.info("已处理" + i);
-            }
-        }
-        closeStatement();
-        closeDBConnection();
-        LOGGER.info("有" + countRC + "个层架标;" + "有" + countNotInDB + "个EPC不在数据库中;" + countSuccess + "本书处理成功！");
         sortBooks();
         getFirstBooks();
     }
@@ -756,27 +598,10 @@ public class Res2Database {
         //升序排序
         bookList.sort((o1, o2) ->
         {
-            String[] b1 = o1.getValue().clone();
-            String[] b2 = o2.getValue().clone();
-            long i1 = 0, i2 = 0;
-            //排序，从楼层号到书架层号
-            for (int i3 = BookFieldName.FLOORNO.getIndex(); i3 <= BookFieldName.ORDERNO.getIndex(); i3++) {
-                if (i3 == BookFieldName.ORDERNO.getIndex()) {
-                    i1 *= 2;
-                    i2 *= 2;
-                }
-//                if (b1[i3].equals("") || b2[i3].equals("")) {
-//                    System.out.println(b1.toString());
-//                    System.out.println(b2.toString());
-//                }
-                i1 = i1 * 100 + Integer.valueOf(b1[i3]);
-                i2 = i2 * 100 + Integer.valueOf(b2[i3]);
-            }
-            int tmp = (int) (i1 - i2);
-            if (tmp == 0) {
-                tmp = b1[BookFieldName.BOOK_INDEX.getIndex()].compareTo(b2[BookFieldName.BOOK_INDEX.getIndex()]);
-            }
-            return tmp;
+            BookInfo b1 = o1.getValue();
+            BookInfo b2 = o2.getValue();
+
+            return b1.location.compareTo(b2.location);
         });
         LOGGER.info("排序完成");
     }
@@ -787,17 +612,14 @@ public class Res2Database {
     private void getFirstBooks() {
         firstBookMap = new LinkedHashMap<>();
         int preOrder = 99;
-        for (Map.Entry<String, String[]> entry : bookList) {
-            String[] bookInfos = entry.getValue();
-            int order = Integer.parseInt(bookInfos[BookFieldName.ORDERNO.getIndex()]);
+        for (Map.Entry<String, BookInfo> entry : bookList) {
+            BookInfo bookInfo = entry.getValue();
+            int order = bookInfo.location.orderNo;
             if (order < preOrder) {
                 //首书
-                String bookIndex = bookInfos[BookFieldName.BOOK_INDEX.getIndex()];
-                String bookPlace = locationEncode(bookInfos);
+                String bookIndex = bookInfo.bookIndex;
+                String bookPlace = encodeLocation(bookInfo.location);
                 if (bookIndex == null) {
-                    System.out.println(bookPlace);
-                }
-                if (bookPlace.length() < 6) {
                     LOGGER.warn("bookPlace:" + bookPlace);
                 }
                 firstBookMap.put(bookPlace, bookIndex);
@@ -811,28 +633,27 @@ public class Res2Database {
      */
     private void getAllLoanHoldList() {
         LOGGER.info("连接数据库,获取所有借出预约列表...");
-        getDBConnection();
-        try {
-            statement = connect.createStatement();
-            if (statement == null) {
-                LOGGER.error("statement创建失败！");
-            }
-            String sql = "SELECT BOOK_ID,FLAG,patronid FROM " + DB_MAIN_NAME + "." + TABLE_BORROW_NAME;
-            resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
-                String flag = resultSet.getString("FLAG");
-                String bookID = resultSet.getString("BOOK_ID").replaceAll(" ", "");
-                String patronID = resultSet.getString("patronid");
-                if (flag.equals("loan")) {
-                    allLoanBookMap.put(bookID, patronID);
-                } else if (flag.equals("hold")) {
-                    allHoldBookMap.put(bookID, patronID);
+        if (createStatement()) {
+            try {
+                String sql = "SELECT BOOK_ID,FLAG,patronid FROM " + DB_MAIN_NAME + "." + TABLE_BORROW_NAME;
+                resultSet = statement.executeQuery(sql);
+                while (resultSet.next()) {
+                    String flag = resultSet.getString("FLAG");
+                    String bookID = resultSet.getString("BOOK_ID").replaceAll(" ", "");
+                    String patronID = resultSet.getString("patronid");
+                    if (flag.equals("loan")) {
+                        allLoanBookMap.put(bookID, patronID);
+                    } else if (flag.equals("hold")) {
+                        allHoldBookMap.put(bookID, patronID);
+                    }
                 }
+            } catch (SQLException e) {
+                LOGGER.error(getTrace(e));
             }
-            statement.close();
-            connect.close();
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
+            closeResultSet();
+            closeStatement();
+        } else {
+            LOGGER.warn("数据库连接失败!!!");
         }
         LOGGER.info("借出图书共有" + allLoanBookMap.size() + "册.预约图书共有" + allHoldBookMap.size() + "册");
     }
@@ -842,15 +663,19 @@ public class Res2Database {
      */
     private void getLossList() {
         LOGGER.info("获取丢失列表");
-        List<String> allLossBook = bookLoss.getLoss(FLOOR);
+        List<String> allLossBook = SQLiteUtil.getLoss(FLOOR);
         for (String tagId : allLossBook) {
             if (!allStatusAbnormalBookMap.containsKey(tagId)) {
                 //去除状态异常的图书
                 String[] tmp = bookInfosTxt.get(tagId);
+                if (tmp == null) {
+                    LOGGER.warn("TagId:" + tagId + "不在数据库中");
+                    continue;
+                }
                 String bookID = tmp[0];
-                String bookIndex = tmp[1];
-                String bookName = tmp[3];
-                if (!allLoanBookMap.containsKey(bookID) && !isForeignBook(bookIndex, bookName)) {
+//                String bookIndex = tmp[1];
+//                String bookName = tmp[3];
+                if (!allLoanBookMap.containsKey(bookID)) {
                     lossMap.put(tagId, new BookInfo(tagId, tmp[0], tmp[1], tmp[3]));
 
                 }
@@ -867,26 +692,27 @@ public class Res2Database {
      */
     private void getToBeUpdatedList() {
         LOGGER.info("连接数据库,获取初始位置未更新列表...");
-        getDBConnection();
-        createStatement();
-        try {
-            String sql = "SELECT TAG_ID,BOOK_INDEX" +
-                    " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
-                    " WHERE CURRENT_LIBRARY= 'WL30' and BOOK_PLACE IS NULL";
-            resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
-                String tagID = resultSet.getString("TAG_ID");
-                String bookIndex = resultSet.getString("BOOK_INDEX");
-                if (BookIndex.isFloor(bookIndex, FLOOR)) {
-                    allToBeUpdatedMap.put(tagID, bookIndex);
+        if (createStatement()) {
+            try {
+                String sql = "SELECT TAG_ID,BOOK_INDEX" +
+                        " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
+                        " WHERE CURRENT_LIBRARY= 'WL30' and BOOK_PLACE IS NULL";
+                resultSet = statement.executeQuery(sql);
+                while (resultSet.next()) {
+                    String tagID = resultSet.getString("TAG_ID");
+                    String bookIndex = resultSet.getString("BOOK_INDEX");
+                    if (BookIndex.isFloor(bookIndex, FLOOR)) {
+                        allToBeUpdatedMap.put(tagID, bookIndex);
+                    }
                 }
+            } catch (SQLException e) {
+                LOGGER.error(getTrace(e));
             }
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
+            closeResultSet();
+            closeStatement();
+        } else {
+            LOGGER.warn("数据连接失败！！！");
         }
-        closeResultSet();
-        closeStatement();
-        closeDBConnection();
         LOGGER.info("获取初始位置未更新列表");
         LOGGER.info("A" + FLOOR + "初始位置未更新图书共有" + allToBeUpdatedMap.size() + "册.");
     }
@@ -900,32 +726,33 @@ public class Res2Database {
      */
     private void getStatusAbnormalList() {
         LOGGER.info("连接数据库,获取所有状态异常列表...");
-        getDBConnection();
-        createStatement();
-        try {
-            String sql = "SELECT TAG_ID,Z30_ITEM_PROCESS_STATUS" +
-                    " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + "," + DB_STATUS_NAME + "." + TABLE_STATUS_NAME +
-                    " WHERE CURRENT_LIBRARY= 'WL30' and trim(" + TABLE_STATUS_NAME + ".Z30_barcode) = " +
-                    TABLE_MAIN_NAME + ".BOOK_ID and z30.Z30_ITEM_PROCESS_STATUS is not null and z30.Z30_ITEM_PROCESS_STATUS <> '  '";
+        if (createStatement()) {
+            try {
+                String sql = "SELECT TAG_ID,Z30_ITEM_PROCESS_STATUS" +
+                        " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + "," + DB_STATUS_NAME + "." + TABLE_STATUS_NAME +
+                        " WHERE CURRENT_LIBRARY= 'WL30' and trim(" + TABLE_STATUS_NAME + ".Z30_barcode) = " +
+                        TABLE_MAIN_NAME + ".BOOK_ID and z30.Z30_ITEM_PROCESS_STATUS is not null and z30.Z30_ITEM_PROCESS_STATUS <> '  '";
 //            LOGGER.info("SQL:" + sql);
-            resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
-                String tagID = resultSet.getString("TAG_ID");
-                String status = resultSet.getString("Z30_ITEM_PROCESS_STATUS");
-                if (status == null) {
-                    status = "null";
-                }
-                if (!status.equals("null") && !status.equals("  ") && !status.equals("")) {
-                    allStatusAbnormalBookMap.put(tagID, status);
+                resultSet = statement.executeQuery(sql);
+                while (resultSet.next()) {
+                    String tagID = resultSet.getString("TAG_ID");
+                    String status = resultSet.getString("Z30_ITEM_PROCESS_STATUS");
+                    if (status == null) {
+                        status = "null";
+                    }
+                    if (!status.equals("null") && !status.equals("  ") && !status.equals("")) {
+                        allStatusAbnormalBookMap.put(tagID, status);
 //                    LOGGER.info(status);
+                    }
                 }
+            } catch (SQLException e) {
+                LOGGER.error(getTrace(e));
             }
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
+            closeResultSet();
+            closeStatement();
+        } else {
+            LOGGER.warn("数据连接失败！！！");
         }
-        closeResultSet();
-        closeStatement();
-        closeDBConnection();
         LOGGER.info("状态异常图书共有" + allStatusAbnormalBookMap.size() + "册.");
     }
 
@@ -950,86 +777,13 @@ public class Res2Database {
         if (IS_FIRST) {
             LOGGER.info("First Scan");
         }
-        getDBConnection();
-        createStatement();
-        for (Map.Entry<String, String[]> entry : bookList) {
-            String tagID = entry.getKey();
-            String[] bookInfos = entry.getValue();
-            String checkPlace = locationEncode(bookInfos);
-            String sql = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
-                    "check_level='" + checkPlace + "', " +
-                    "BOOK_ORDER_NO" + "='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
-                    "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
-//            LOGGER.info(sql);
-            String bookPlace;
-            if (IS_FIRST || allToBeUpdatedMap.containsKey(tagID)) {
-                if (allToBeUpdatedMap.containsKey(tagID)) {
-                    allToBeUpdatedMap.remove(tagID);
-                }
-                bookPlace = checkPlace;
-                boolean isError = bookInfos[BookFieldName.ERRORFLAG.getIndex()].equals("1");
-                if (isError) {
-                    bookPlace = getRightBookPlace(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]);
-                }
-//                if(bookPlace.equals("WLA5F4090706")){
-//                    System.out.println(checkPlace);
-//                }
-                if (errorLibBookMap.containsKey(tagID)) {
-                    bookPlace = null;
-                }
-                countUpdated++;
-                String sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
-                        "book_place='" + bookPlace + "', " +
-                        "BOOK_ORDER_NO" + "='" + bookInfos[BookFieldName.ORDERNO.getIndex()] + "' " +
-                        "WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
-                try {
-                    statement.executeUpdate(sqlBookPlace);
-                } catch (SQLException e) {
-                    LOGGER.error(e.getMessage());
-                    LOGGER.info("尝试重连");
-                    closeStatement();
-                    closeDBConnection();
-                    getDBConnection();
-                    createStatement();
-                }
-            }
-            try {
-                statement.executeUpdate(sql);
-            } catch (SQLException e) {
-                LOGGER.error(e.getMessage());
-                LOGGER.info("尝试重连");
-                getDBConnection();
-                createStatement();
-            }
-            if (++i % 1000 == 0) {
-                LOGGER.info("已更新" + i);
-            }
+        for (Map.Entry<String, BookInfo> entry : bookList) {
+            BookInfo bookInfo = entry.getValue();
+            SQLiteUtil.updateBookLocation(bookInfo);
         }
-        int countUpdate = 0;
-        for (Map.Entry<String, String> entry : allToBeUpdatedMap.entrySet()) {
-            String tagID = entry.getKey();
-            String bookIndex = entry.getValue();
-            //图书不是错馆图书
-            if (!errorLibBookMap.containsKey(tagID)) {
-                countUpdate++;
-                String bookPlace = getRightBookPlace(bookIndex);
-//                if(bookPlace.equals("WLA5F4090706")){
-//                    System.out.println("why");
-//                }
-                String sqlBookPlace = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " SET " +
-                        "book_place='" + bookPlace +
-                        "' WHERE " + DB_FIELD_NAME[0] + "='" + tagID + "'";
-                try {
-                    statement.executeUpdate(sqlBookPlace);
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        closeStatement();
-        closeDBConnection();
-        LOGGER.info("数据库更新完成!图书初始位置更新" + countUpdated + "册，估计更新" + countUpdate + "册");
-        Config.MAIL.sendEmail("A" + FLOOR + ",Database finishes update", "数据库更新已完成");
+        SQLiteUtil.closeConnect();
+        LOGGER.info("数据库更新完成!图书初始位置更新" + countUpdated + "册");
+        Config.MAIL.sendEmail(CuhkszSchool.SCHOOL_CODE + ",A" + FLOOR + ",Database finishes update", "数据库更新已完成");
     }
 
     /**
@@ -1038,27 +792,29 @@ public class Res2Database {
      * @param tagID EPC号
      * @return 书ID 书索引号 馆藏地 书名
      */
-    private String[] getBookInfo(String tagID) {
-        String bookID = null, bookIndex = "", bookName = "", currentLibrary = "";
-        getDBConnection();
-        try {
-            statement = connect.createStatement();
-            String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
-                    "" + "" + "= '" + tagID + "'";
-            resultSet = statement.executeQuery(sql);
-            if (resultSet.next()) {
-                bookID = resultSet.getString(BookFieldName.BOOK_ID.getName());
-                bookIndex = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
-                bookName = resultSet.getString(BookFieldName.BOOK_NAME.getName());
-                currentLibrary = resultSet.getString("CURRENT_LIBRARY");
-            }
-            statement.close();
-            connect.close();
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
-        }
-        return new String[]{bookID, bookIndex, currentLibrary, bookName};
-    }
+//    private String[] getBookInfo(String tagID) {
+//        String bookID = null, bookIndex = "", bookName = "", currentLibrary = "";
+//        if (createStatement()) {
+//            try {
+//                String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
+//                        "" + "" + "= '" + tagID + "'";
+//                resultSet = statement.executeQuery(sql);
+//                if (resultSet.next()) {
+//                    bookID = resultSet.getString(BookFieldName.BOOK_ID.getName());
+//                    bookIndex = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
+//                    bookName = resultSet.getString(BookFieldName.BOOK_NAME.getName());
+//                    currentLibrary = resultSet.getString("CURRENT_LIBRARY");
+//                }
+//            } catch (SQLException e) {
+//                LOGGER.error(getTrace(e));
+//            }
+//            closeResultSet();
+//            closeStatement();
+//        } else {
+//            LOGGER.warn("数据连接失败！！！");
+//        }
+//        return new String[]{bookID, bookIndex, currentLibrary, bookName};
+//    }
 
     /**
      * 通过书籍条形码来获取图书状态信息
@@ -1117,367 +873,486 @@ public class Res2Database {
     /**
      * 将图书信息写入表格中
      *
-     * @param sheet     要写入的表格
-     * @param bookInfos 图书信息
-     * @param format    表格格式
+     * @param sheet    要写入的表格
+     * @param bookInfo 图书信息
+     * @param format   表格格式
      */
-    private void addBookToSheet(WritableSheet sheet, String[] bookInfos, CellFormat format) {
-        int rowNo = sheet.getRows();
-        if (bookInfos[BookFieldName.BOOK_ID.getIndex()] == null) {
-            //数据库图书未找到
-            return;
-        }
-        Label labBookID = new Label(0, rowNo, bookInfos[BookFieldName.BOOK_ID.getIndex()], format);
-        Label labBookIndex = new Label(1, rowNo, bookInfos[BookFieldName.BOOK_INDEX.getIndex()], format);
-        Label labBookName = new Label(2, rowNo, bookInfos[BookFieldName.BOOK_NAME.getIndex()], format);
-        Label labColumnNo = new Label(3, rowNo, bookInfos[BookFieldName.COLUMNNO.getIndex()], format);
-        Label labRowNo = new Label(4, rowNo, bookInfos[BookFieldName.ROWNO.getIndex()], format);
-        Label labShelfNo = new Label(5, rowNo, bookInfos[BookFieldName.SHELFNO.getIndex()], format);
-        Label labLayerNo = new Label(6, rowNo, bookInfos[BookFieldName.LAYERNO.getIndex()], format);
-        Label labOrderNo = new Label(7, rowNo, bookInfos[BookFieldName.ORDERNO.getIndex()], format);
-        Label labNum = new Label(8, rowNo, bookInfos[BookFieldName.NUM.getIndex()], format);
-        Label[] labels = {labBookID, labBookIndex, labBookName, labColumnNo, labRowNo, labShelfNo, labLayerNo,
-                labOrderNo, labNum};
-        try {
-            for (Label label : labels) {
-                sheet.addCell(label);
-            }
-        } catch (WriteException e) {
-            LOGGER.error(getTrace(e));
-        }
-    }
+//    private void addBookToSheet(WritableSheet sheet, BookInfo bookInfo, CellFormat format) {
+//        int rowNo = sheet.getRows();
+//        if (bookInfo.barcode == null) {
+//            //数据库图书未找到
+//            return;
+//        }
+//        Label labBookID = new Label(0, rowNo, bookInfo.barcode, format);
+//        Label labBookIndex = new Label(1, rowNo, bookInfo.bookIndex, format);
+//        Label labBookName = new Label(2, rowNo, bookInfo.bookName, format);
+//        Label labColumnNo = new Label(3, rowNo, bookInfo.location.columnNo + "", format);
+//        Label labRowNo = new Label(4, rowNo, bookInfo.location.rowNo + "", format);
+//        Label labShelfNo = new Label(5, rowNo, bookInfo.location.shelfNo + "", format);
+//        Label labLayerNo = new Label(6, rowNo, bookInfo.location.layerNo + "", format);
+//        Label labOrderNo = new Label(7, rowNo, bookInfo.location.orderNo + "", format);
+//        Label labNum = new Label(8, rowNo, bookInfo.location.totalNum + "", format);
+//        Label[] labels = {labBookID, labBookIndex, labBookName, labColumnNo, labRowNo, labShelfNo, labLayerNo,
+//                labOrderNo, labNum};
+//        try {
+//            for (Label label : labels) {
+//                sheet.addCell(label);
+//            }
+//        } catch (WriteException e) {
+//            LOGGER.error(getTrace(e));
+//        }
+//    }
 
     /**
-     * 按行和列生成报表
+     * @param excel
+     * @param sheetName
+     * @param bookInfos
      */
-    public void generateReportTemp() {
+//    private void addBookToSheet(Excel excel, String sheetName, String[] bookInfos) {
+//
+//        if (bookInfos[BookFieldName.BOOK_ID.getIndex()] == null) {
+//            //数据库图书未找到
+//            return;
+//        }
+//        String contents[] = {bookInfos[BookFieldName.BOOK_ID.getIndex()],
+//                bookInfos[BookFieldName.BOOK_INDEX.getIndex()],
+//                bookInfos[BookFieldName.BOOK_NAME.getIndex()],
+//                bookInfos[BookFieldName.COLUMNNO.getIndex()],
+//                bookInfos[BookFieldName.ROWNO.getIndex()],
+//                bookInfos[BookFieldName.SHELFNO.getIndex()],
+//                bookInfos[BookFieldName.LAYERNO.getIndex()],
+//                bookInfos[BookFieldName.ORDERNO.getIndex()],
+//                bookInfos[BookFieldName.NUM.getIndex()]};
+//        excel.addLine(false, sheetName, contents);
+//    }
+
+    /**
+     * 按行和列生成报表，使用EXCEL类
+     */
+    public void generateReport() {
         LOGGER.info("开始生成报表...");
-        WritableWorkbook book = null;
-        try {
-            book = Workbook.createWorkbook(new File(reportPath));
-        } catch (IOException e) {
-            LOGGER.error(getTrace(e));
+        Excel excel = new Excel(reportPath);
+//        String sheets[] = {"统计信息", "错架列表", "错误馆藏地列表", "状态异常列表", "TAG异常列表", "首书列表", "借出列表", "预约列表"};
+        String sheets[] = {"错架列表", "TAG异常列表", "首书列表"};
+        ArrayList<String> titles = new ArrayList<>(Arrays.asList("条形码", "索书号", "书名", "列号", "排号", "架号", "层号", "顺序号", "书格图书总数"));
+        for (String sheetName : sheets) {
+            int[] lengthCopy = EXCEL_LENGTH.clone();
+            excel.createNewSheet(sheetName);
+            ArrayList tmp = (ArrayList) titles.clone();
+            if (sheetName.equals("TAG异常列表")) {
+                tmp.add(0, "TagID");
+                lengthCopy[0] = 30;
+                lengthCopy[1] = 12;
+                lengthCopy[2] = 6;
+            }
+            if (sheetName.equals("错架列表")) {
+                tmp.add(9, "估计列号");
+                tmp.add(10, "估计排号");
+                tmp.add(11, "估计架号");
+                tmp.add(12, "估计层号");
+            }
+            excel.addLine(true, sheetName, tmp);
+            excel.setColumnView(sheetName, lengthCopy);
         }
-        int count = 0;
-        int sheetNum = 0;
-        if (book == null) {
-            LOGGER.error("报表创建失败！");
-            return;
-        }
-        //统计信息列表
-        WritableSheet sheetDashboard = book.createSheet("统计信息", sheetNum);
-        sheetNum++;
-        //错误列表
-        WritableSheet sheetErr = book.createSheet("错架列表", sheetNum);
-        sheetNum++;
-        //错误馆藏地列表
-        WritableSheet sheetErrLib = book.createSheet("错误馆藏地列表", sheetNum);
-        sheetNum++;
-        //状态异常列表
-        WritableSheet sheetStatusAbn = book.createSheet("状态异常列表", sheetNum);
-        sheetNum++;
-        //tag异常列表
-        WritableSheet sheetTagAbn = book.createSheet("TAG异常列表", sheetNum);
-        sheetNum++;
-        //首书列表
-        WritableSheet sheetFirstBook = book.createSheet("首书列表", sheetNum);
-        sheetNum++;
         boolean isFirstBook = true;
-
-        //借出列表
-        WritableSheet sheetLoan = book.createSheet("借出列表", sheetNum);
-        sheetNum++;
-        //预约列表
-        WritableSheet sheetHold = book.createSheet("预约列表", sheetNum);
-        sheetNum++;
-
-        //定义样式
-        WritableCellFormat formatText = new WritableCellFormat();
-        try {
-            formatText.setAlignment(Alignment.CENTRE);
-            formatText.setBackground(jxl.format.Colour.GRAY_25);
-        } catch (WriteException e) {
-            LOGGER.error(getTrace(e));
-        }
-        WritableCellFormat format = new WritableCellFormat();
-        // true自动换行，false不自动换行
-        try {
-            format.setWrap(true);
-        } catch (WriteException e) {
-            LOGGER.error(getTrace(e));
-        }
-        Label labTagIDText, labBookIDText, labBookIndexText, labBookNameText, labColumnNoText,
-                labRowNoText, labShelfNoText, labLayerNoText, labOrderNoText,
-                labNumText, labLibraryText, labStatusText;
-        WritableSheet[] sheets = {sheetErr, sheetErrLib, sheetStatusAbn, sheetTagAbn, sheetFirstBook, sheetLoan, sheetHold};
-        for (WritableSheet sheet : sheets) {
-            //添加第一行信息
-            labTagIDText = new Label(0, 0, "TagID", formatText);
-            labBookIDText = new Label(0, 0, "条形码", formatText);
-            labBookIndexText = new Label(1, 0, "索书号", formatText);
-            labBookNameText = new Label(2, 0, "书名", formatText);
-            labColumnNoText = new Label(3, 0, "列号", formatText);
-            labRowNoText = new Label(4, 0, "排号", formatText);
-            labShelfNoText = new Label(5, 0, "架号", formatText);
-            labLayerNoText = new Label(6, 0, "层号", formatText);
-            labOrderNoText = new Label(7, 0, "顺序号", formatText);
-            labNumText = new Label(8, 0, "书格图书总数", formatText);
-            labLibraryText = new Label(9, 0, "应在馆藏地", formatText);
-            labStatusText = new Label(9, 0, "状态", formatText);
-            Label labRightColumnNoText = new Label(9, 0, "列号", formatText);
-            Label labRightRowNoText = new Label(10, 0, "排号", formatText);
-            Label labRightShelfNoText = new Label(11, 0, "架号", formatText);
-            Label labRightLayerNoText = new Label(12, 0, "层号", formatText);
-            Label labRightLibraryText = new Label(13, 0, "应在馆藏地", formatText);
-            Label labPatronIDText = new Label(9, 0, "借书ID", formatText);
-            Label[] labelsText = {labBookIDText, labBookIndexText, labBookNameText, labColumnNoText, labRowNoText, labShelfNoText,
-                    labLayerNoText, labOrderNoText, labNumText};
-            try {
-                for (Label labelText : labelsText) {
-                    sheet.addCell(labelText);
-                }
-                if (sheet.getName().equals("错误馆藏地列表")) {
-                    sheet.addCell(labLibraryText);
-                }
-                if (sheet.getName().equals("状态异常列表")) {
-                    sheet.addCell(labStatusText);
-                }
-                if (sheet.getName().equals("TAG异常列表")) {
-                    sheet.addCell(labTagIDText);
-                }
-                if (sheet.getName().equals("错架列表")) {
-                    sheet.addCell(labRightColumnNoText);
-                    sheet.addCell(labRightRowNoText);
-                    sheet.addCell(labRightShelfNoText);
-                    sheet.addCell(labRightLayerNoText);
-                    sheet.addCell(labRightLibraryText);
-                }
-                if (sheet.getName().equals("借出列表") || sheet.getName().equals("预约列表")) {
-                    sheet.setColumnView(9, 12);
-                    sheet.addCell(labPatronIDText);
-                }
-            } catch (WriteException e) {
-                LOGGER.error(getTrace(e));
-            }
-            //表格格式设置，固定列宽和自动换行
-            for (int i = 0; i < EXCEL_LENGTH.length; i++) {
-                sheet.setColumnView(i, EXCEL_LENGTH[i]);
-            }
-        }
         int preOrder = 99;
-        getDBConnection();
-        createStatement();
-        for (Map.Entry<String, String[]> entry : bookList) {
+//        createStatement();
+        for (Map.Entry<String, BookInfo> entry : bookList) {
             String tagID = entry.getKey();
-            String[] bookInfos = entry.getValue();
-            String tmp = bookInfos[BookFieldName.COLUMNNO.getIndex()] + "列 " + bookInfos[BookFieldName.ROWNO.getIndex
-                    ()] + "排";
-            int currOrder = Integer.parseInt(bookInfos[BookFieldName.ORDERNO.getIndex()]);
+            BookInfo bookInfo = entry.getValue();
+            String sheetName = bookInfo.location.columnNo + "列 " + bookInfo.location.rowNo + "排";
+            int currOrder = bookInfo.location.orderNo;
             if (currOrder < preOrder) {
                 isFirstBook = true;
             }
             preOrder = currOrder;
-            WritableSheet sheet;
-            if ((sheet = book.getSheet(tmp)) == null) {
-                //不存在此sheet
-                sheet = book.createSheet(tmp, sheetNum);
-                sheetNum++;
-                labBookIDText = new Label(0, 0, "条形码", formatText);
-                labBookIndexText = new Label(1, 0, "索书号", formatText);
-                labBookNameText = new Label(2, 0, "书名", formatText);
-                labColumnNoText = new Label(3, 0, "列号", formatText);
-                labRowNoText = new Label(4, 0, "排号", formatText);
-                labShelfNoText = new Label(5, 0, "架号", formatText);
-                labLayerNoText = new Label(6, 0, "层号", formatText);
-                labOrderNoText = new Label(7, 0, "顺序号", formatText);
-                labNumText = new Label(8, 0, "书格图书总数", formatText);
-                Label[] newLabelsText = {labBookIDText, labBookIndexText, labBookNameText, labColumnNoText, labRowNoText, labShelfNoText,
-                        labLayerNoText, labOrderNoText, labNumText};
-                try {
-                    for (Label aNewLabelsText : newLabelsText) {
-                        sheet.addCell(aNewLabelsText);
-                    }
-
-                } catch (WriteException e) {
-                    LOGGER.error(getTrace(e));
-                }
-                //表格格式设置，固定列宽和自动换行
-                for (int i = 0; i < EXCEL_LENGTH.length; i++) {
-                    sheet.setColumnView(i, EXCEL_LENGTH[i]);
-                }
+            if (!excel.hasSheet(sheetName)) {
+                excel.addLine(true, sheetName, titles);
+                excel.setColumnView(sheetName, EXCEL_LENGTH);
             }
             //添加书本信息
-            addBookToSheet(sheet, bookInfos, format);
-            String str1 = "1";
-            if (str1.equals(bookInfos[BookFieldName.ERRORFLAG.getIndex()]) || errorLibBookMap.containsKey(tagID)) {
-                addBookToSheet(sheetErr, bookInfos, format);
-                String bookP = getRightBookPlace(bookInfos[BookFieldName.BOOK_INDEX.getIndex()]);
+            ArrayList<String> arrayList = new ArrayList<>(Arrays.asList(
+                    bookInfo.barcode,
+                    bookInfo.bookIndex,
+                    bookInfo.bookName,
+                    bookInfo.location.columnNo + "",
+                    bookInfo.location.rowNo + "",
+                    bookInfo.location.shelfNo + "",
+                    bookInfo.location.layerNo + "",
+                    bookInfo.location.orderNo + "",
+                    bookInfo.location.totalNum + ""));
+            excel.addLine(false, sheetName, arrayList);
+            if (bookInfo.isError || errorLibBookMap.containsKey(tagID)) {
+                String bookP = getRightBookPlace(bookInfo.bookIndex);
                 if (bookP == null) {
                     continue;
                 }
-                String[] bookPlace = locationDecode(bookP);
-                //加入正确位置
-                int rowNo = sheetErr.getRows() - 1;
-                Label labColumnNo = new Label(9, rowNo, bookPlace[2], format);
-                Label labRowNo = new Label(10, rowNo, bookPlace[3], format);
-                Label labShelfNo = new Label(11, rowNo, bookPlace[4], format);
-                Label labLayerNo = new Label(12, rowNo, bookPlace[5], format);
-                Label labRightLibrary;
+                BookLocation bookLocation = decodeLocation(bookP);
+                arrayList.add(bookLocation.columnNo + "");
+                arrayList.add(bookLocation.rowNo + "");
+                arrayList.add(bookLocation.shelfNo + "");
+                arrayList.add(bookLocation.layerNo + "");
                 if (errorLibBookMap.containsKey(tagID)) {
-                    labRightLibrary = new Label(13, rowNo, errorLibBookMap.get(tagID), format);
-                } else {
-                    labRightLibrary = new Label(13, rowNo, "", format);
+                    arrayList.add(errorLibBookMap.get(tagID));
                 }
-                Label[] labels = {labColumnNo, labRowNo, labShelfNo, labLayerNo, labRightLibrary};
-                try {
-                    for (Label label : labels) {
-                        sheetErr.addCell(label);
-                    }
-                } catch (WriteException e) {
-                    LOGGER.error(getTrace(e));
-                }
+                excel.addLine(false, "错架列表", arrayList);
             }
-            if (errorLibBookMap.containsKey(tagID)) {
-                //错误馆藏地的图书
-                addBookToSheet(sheetErrLib, bookInfos, format);
-                Label labLibrary = new Label(9, sheetErrLib.getRows() - 1, errorLibBookMap.get(tagID), format);
-                try {
-                    sheetErrLib.addCell(labLibrary);
-                } catch (WriteException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (allStatusAbnormalBookMap.containsKey(tagID)) {
-                //状态异常图书
-                String status = allStatusAbnormalBookMap.get(tagID);
-                addBookToSheet(sheetStatusAbn, bookInfos, format);
-                Label labStatus = new Label(9, sheetStatusAbn.getRows() - 1, status, format);
-                try {
-                    sheetStatusAbn.addCell(labStatus);
-                } catch (WriteException e) {
-                    e.printStackTrace();
-                }
-            }
+//            if (errorLibBookMap.containsKey(tagID)) {
+//                //错误馆藏地的图书
+//                arrayList.add(errorLibBookMap.get(tagID));
+//                excel.addLine(false,"错误馆藏地列表",arrayList);
+//            }
+//            if (allStatusAbnormalBookMap.containsKey(tagID)) {
+//                //状态异常图书
+//                String status = allStatusAbnormalBookMap.get(tagID);
+//                arrayList.add(status);
+//                excel.addLine(false,"状态异常列表",arrayList);
+//            }
             if (tagAbnormalBookList.contains(tagID)) {
-                addBookToSheet(sheetTagAbn, bookInfos, format);
-                Label labTagID = new Label(0, sheetTagAbn.getRows() - 1, tagID, format);
-                try {
-                    sheetTagAbn.addCell(labTagID);
-                } catch (WriteException e) {
-                    e.printStackTrace();
-                }
+                arrayList.add(0, tagID);
+                excel.addLine(false, "TAG异常列表", arrayList);
             }
-            if (loanBookList.contains(tagID)) {
-                //借出图书
-                addBookToSheet(sheetLoan, bookInfos, format);
-                Label labLibrary = new Label(9, sheetLoan.getRows() - 1, allLoanBookMap.get(bookInfos[0]), format);
-                try {
-                    sheetLoan.addCell(labLibrary);
-                } catch (WriteException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (holdBookList.contains(tagID)) {
-                //预约图书
-                addBookToSheet(sheetHold, bookInfos, format);
-                Label labLibrary = new Label(9, sheetHold.getRows() - 1, allHoldBookMap.get(bookInfos[0]), format);
-                try {
-                    sheetHold.addCell(labLibrary);
-                } catch (WriteException e) {
-                    e.printStackTrace();
-                }
-            }
+//            if (loanBookList.contains(tagID)) {
+//                //借出图书
+//                arrayList.add(allLoanBookMap.get(bookInfos[0]));
+//                excel.addLine(false,"借出列表",arrayList);
+//            }
+//            if (holdBookList.contains(tagID)) {
+//                //预约图书
+//                arrayList.add(allHoldBookMap.get(bookInfos[0]));
+//                excel.addLine(false,"预约列表",arrayList);
+//            }
             if (isFirstBook) {
                 //首书列表
-                addBookToSheet(sheetFirstBook, bookInfos, format);
+                excel.addLine(false, "首书列表", arrayList);
                 isFirstBook = false;
             }
         }
-        closeStatement();
-        closeDBConnection();
-        countErr = sheetErr.getRows() - 1;
-        countErrLib = sheetErrLib.getRows() - 1;
-        countHold = sheetHold.getRows() - 1;
-        countLoan = sheetLoan.getRows() - 1;
-        countStatusAbn = sheetStatusAbn.getRows() - 1;
-        WritableCellFormat formatTitle = new WritableCellFormat();
-        try {
-            formatTitle.setAlignment(jxl.format.Alignment.CENTRE);
-            formatTitle.setBorder(jxl.format.Border.BOTTOM, jxl.format.BorderLineStyle.THICK, jxl.format.Colour.RED);
-        } catch (WriteException e) {
-            e.printStackTrace();
-        }
-        sheetDashboard.setColumnView(0, 25);
-        sheetDashboard.setColumnView(1, 15);
-        try {
-            sheetDashboard.setRowView(0, 500);
-        } catch (RowsExceededException e) {
-            e.printStackTrace();
-        }
-
-        //获取跳过书架
-        Config.REMAIN_SHELFS_STR = readFileByLine(Config.REMAIN_SHELFS_PATH).get(0);
-        deleteFile(Config.REMAIN_SHELFS_PATH);
-        Label labTitle = new Label(0, 0, "盘点统计信息", formatTitle),
-                labFloorText = new Label(0, 1, "盘点楼层", formatText),
-                labTotalText = new Label(0, 2, "扫描图书总数", formatText),
-                labLossText = new Label(0, 3, "丢失图书总数", formatText),
-                labQueryFailureText = new Label(0, 4, "TAG_ID查询失败", formatText),
-                labErrorText = new Label(0, 5, "错架图书", formatText),
-                labErrorLibText = new Label(0, 6, "错馆图书", formatText),
-                labLoanText = new Label(0, 7, "借出但被扫描到", formatText),
-                labHoldText = new Label(0, 8, "预约图书", formatText),
-                labStatusAbnText = new Label(0, 9, "状态异常图书", formatText),
-                labRemainShelfText = new Label(0, 10, "跳过书架", formatText),
-                labFloor = new Label(1, 1, FLOOR + "", format),
-                labTotal = new Label(1, 2, countSuccess + "", format),
-                labQueryFailure = new Label(1, 4, countNotInDB + "", format),
-                labError = new Label(1, 5, countErr + "", format),
-                labErrorLib = new Label(1, 6, countErrLib + "", format),
-                labLoan = new Label(1, 7, countLoan + "", format),
-                labHold = new Label(1, 8, countHold + "", format),
-                labStatusAbn = new Label(1, 9, countStatusAbn + "", format),
-                labRemainShelf = new Label(1, 10, Config.REMAIN_SHELFS_STR + "", format);
-        Label labLoss;
-        if (CHECK_LOSS) {
-            labLoss = new Label(1, 3, countLoss + "", format);
-        } else {
-            labLoss = new Label(1, 3, "请等待周" + Config.LOSS_RESET_WEEK + "的丢失报表", format);
-        }
-        Label[] labs = {labTitle, labFloorText, labFloor,
-                labTotalText, labTotal,
-                labLossText, labLoss,
-                labQueryFailureText, labQueryFailure,
-                labErrorText, labError,
-                labErrorLibText, labErrorLib,
-                labLoanText, labLoan,
-                labHoldText, labHold,
-                labStatusAbnText, labStatusAbn,
-                labRemainShelfText, labRemainShelf};
-        for (Label lab : labs) {
-            try {
-                sheetDashboard.addCell(lab);
-            } catch (WriteException e) {
-                e.printStackTrace();
-            }
-        }
-        try {
-            sheetDashboard.mergeCells(0, 0, 1, 0);
-        } catch (WriteException e) {
-            e.printStackTrace();
-        }
-        try {
-            book.write();
-            book.close();
-        } catch (IOException | WriteException e) {
-            LOGGER.error(getTrace(e));
-        }
+        excel.saveExcel();
+//        closeStatement();
+//        closeDBConnection();
+        countErr = excel.getSheetRows("错架列表");
+//        countErrLib = excel.getSheetRows("错误馆藏地列表");
+//        countHold = excel.getSheetRows("预约列表");
+//        countLoan = excel.getSheetRows("借出列表");
+//        countStatusAbn =excel.getSheetRows("状态异常列表");
         LOGGER.info("报表生成！");
         LOGGER.info("错架图书：" + countErr);
-        LOGGER.info("错馆图书：" + countErrLib);
-        LOGGER.info("借出图书：" + countLoan);
-        LOGGER.info("预约图书：" + countHold);
+//        LOGGER.info("错馆图书：" + countErrLib);
+//        LOGGER.info("借出图书：" + countLoan);
+//        LOGGER.info("预约图书：" + countHold);
     }
+
+
+//    /**
+//     * 按行和列生成报表
+//     */
+//    public void generateReportTemp() {
+//        LOGGER.info("开始生成报表...");
+//        WritableWorkbook book = null;
+//        try {
+//            book = Workbook.createWorkbook(new File(reportPath));
+//        } catch (IOException e) {
+//            LOGGER.error(getTrace(e));
+//        }
+//        int count = 0;
+//        int sheetNum = 0;
+//        if (book == null) {
+//            LOGGER.error("报表创建失败！");
+//            return;
+//        }
+//        //统计信息列表
+//        WritableSheet sheetDashboard = book.createSheet("统计信息", sheetNum);
+//        sheetNum++;
+//        //错误列表
+//        WritableSheet sheetErr = book.createSheet("错架列表", sheetNum);
+//        sheetNum++;
+//        //错误馆藏地列表
+//        WritableSheet sheetErrLib = book.createSheet("错误馆藏地列表", sheetNum);
+//        sheetNum++;
+//        //状态异常列表
+//        WritableSheet sheetStatusAbn = book.createSheet("状态异常列表", sheetNum);
+//        sheetNum++;
+//        //tag异常列表
+//        WritableSheet sheetTagAbn = book.createSheet("TAG异常列表", sheetNum);
+//        sheetNum++;
+//        //首书列表
+//        WritableSheet sheetFirstBook = book.createSheet("首书列表", sheetNum);
+//        sheetNum++;
+//        boolean isFirstBook = true;
+//
+//        //借出列表
+//        WritableSheet sheetLoan = book.createSheet("借出列表", sheetNum);
+//        sheetNum++;
+//        //预约列表
+//        WritableSheet sheetHold = book.createSheet("预约列表", sheetNum);
+//        sheetNum++;
+//
+//        //定义样式
+//        WritableCellFormat formatText = new WritableCellFormat();
+//        try {
+//            formatText.setAlignment(Alignment.CENTRE);
+//            formatText.setBackground(jxl.format.Colour.GRAY_25);
+//        } catch (WriteException e) {
+//            LOGGER.error(getTrace(e));
+//        }
+//        WritableCellFormat format = new WritableCellFormat();
+//        // true自动换行，false不自动换行
+//        try {
+//            format.setWrap(true);
+//        } catch (WriteException e) {
+//            LOGGER.error(getTrace(e));
+//        }
+//        Label labTagIDText, labBookIDText, labBookIndexText, labBookNameText, labColumnNoText,
+//                labRowNoText, labShelfNoText, labLayerNoText, labOrderNoText,
+//                labNumText, labLibraryText, labStatusText;
+//        WritableSheet[] sheets = {sheetErr, sheetErrLib, sheetStatusAbn, sheetTagAbn, sheetFirstBook, sheetLoan, sheetHold};
+//        for (WritableSheet sheet : sheets) {
+//            //添加第一行信息
+//            labTagIDText = new Label(0, 0, "TagID", formatText);
+//            labBookIDText = new Label(0, 0, "条形码", formatText);
+//            labBookIndexText = new Label(1, 0, "索书号", formatText);
+//            labBookNameText = new Label(2, 0, "书名", formatText);
+//            labColumnNoText = new Label(3, 0, "列号", formatText);
+//            labRowNoText = new Label(4, 0, "排号", formatText);
+//            labShelfNoText = new Label(5, 0, "架号", formatText);
+//            labLayerNoText = new Label(6, 0, "层号", formatText);
+//            labOrderNoText = new Label(7, 0, "顺序号", formatText);
+//            labNumText = new Label(8, 0, "书格图书总数", formatText);
+//            labLibraryText = new Label(9, 0, "应在馆藏地", formatText);
+//            labStatusText = new Label(9, 0, "状态", formatText);
+//            Label labRightColumnNoText = new Label(9, 0, "列号", formatText);
+//            Label labRightRowNoText = new Label(10, 0, "排号", formatText);
+//            Label labRightShelfNoText = new Label(11, 0, "架号", formatText);
+//            Label labRightLayerNoText = new Label(12, 0, "层号", formatText);
+//            Label labRightLibraryText = new Label(13, 0, "应在馆藏地", formatText);
+//            Label labPatronIDText = new Label(9, 0, "借书ID", formatText);
+//            Label[] labelsText = {labBookIDText, labBookIndexText, labBookNameText, labColumnNoText, labRowNoText, labShelfNoText,
+//                    labLayerNoText, labOrderNoText, labNumText};
+//            try {
+//                for (Label labelText : labelsText) {
+//                    sheet.addCell(labelText);
+//                }
+//                if (sheet.getName().equals("错误馆藏地列表")) {
+//                    sheet.addCell(labLibraryText);
+//                }
+//                if (sheet.getName().equals("状态异常列表")) {
+//                    sheet.addCell(labStatusText);
+//                }
+//                if (sheet.getName().equals("TAG异常列表")) {
+//                    sheet.addCell(labTagIDText);
+//                }
+//                if (sheet.getName().equals("错架列表")) {
+//                    sheet.addCell(labRightColumnNoText);
+//                    sheet.addCell(labRightRowNoText);
+//                    sheet.addCell(labRightShelfNoText);
+//                    sheet.addCell(labRightLayerNoText);
+//                    sheet.addCell(labRightLibraryText);
+//                }
+//                if (sheet.getName().equals("借出列表") || sheet.getName().equals("预约列表")) {
+//                    sheet.setColumnView(9, 12);
+//                    sheet.addCell(labPatronIDText);
+//                }
+//            } catch (WriteException e) {
+//                LOGGER.error(getTrace(e));
+//            }
+//            //表格格式设置，固定列宽和自动换行
+//            for (int i = 0; i < EXCEL_LENGTH.length; i++) {
+//                sheet.setColumnView(i, EXCEL_LENGTH[i]);
+//            }
+//        }
+//        int preOrder = 99;
+//        createStatement();
+//        for (Map.Entry<String, BookInfo> entry : bookList) {
+//            String tagID = entry.getKey();
+//            BookInfo bookInfo = entry.getValue();
+//            String tmp = bookInfo.location.columnNo + "列 " + bookInfo.location.rowNo + "排";
+//            int currOrder = bookInfo.location.orderNo;
+//            if (currOrder < preOrder) {
+//                isFirstBook = true;
+//            }
+//            preOrder = currOrder;
+//            WritableSheet sheet;
+//            if ((sheet = book.getSheet(tmp)) == null) {
+//                //不存在此sheet
+//                sheet = book.createSheet(tmp, sheetNum);
+//                sheetNum++;
+//                labBookIDText = new Label(0, 0, "条形码", formatText);
+//                labBookIndexText = new Label(1, 0, "索书号", formatText);
+//                labBookNameText = new Label(2, 0, "书名", formatText);
+//                labColumnNoText = new Label(3, 0, "列号", formatText);
+//                labRowNoText = new Label(4, 0, "排号", formatText);
+//                labShelfNoText = new Label(5, 0, "架号", formatText);
+//                labLayerNoText = new Label(6, 0, "层号", formatText);
+//                labOrderNoText = new Label(7, 0, "顺序号", formatText);
+//                labNumText = new Label(8, 0, "书格图书总数", formatText);
+//                Label[] newLabelsText = {labBookIDText, labBookIndexText, labBookNameText, labColumnNoText, labRowNoText, labShelfNoText,
+//                        labLayerNoText, labOrderNoText, labNumText};
+//                try {
+//                    for (Label aNewLabelsText : newLabelsText) {
+//                        sheet.addCell(aNewLabelsText);
+//                    }
+//
+//                } catch (WriteException e) {
+//                    LOGGER.error(getTrace(e));
+//                }
+//                //表格格式设置，固定列宽和自动换行
+//                for (int i = 0; i < EXCEL_LENGTH.length; i++) {
+//                    sheet.setColumnView(i, EXCEL_LENGTH[i]);
+//                }
+//            }
+//            //添加书本信息
+//            addBookToSheet(sheet, bookInfo, format);
+//            String str1 = "1";
+//            if (bookInfo.isError || errorLibBookMap.containsKey(tagID)) {
+//                addBookToSheet(sheetErr, bookInfo, format);
+//                String bookP = getRightBookPlace(bookInfo.bookIndex);
+//                if (bookP == null) {
+//                    continue;
+//                }
+//                String[] bookPlace = locationDecode(bookP);
+//                //加入正确位置
+//                int rowNo = sheetErr.getRows() - 1;
+//                Label labColumnNo = new Label(9, rowNo, bookPlace[2], format);
+//                Label labRowNo = new Label(10, rowNo, bookPlace[3], format);
+//                Label labShelfNo = new Label(11, rowNo, bookPlace[4], format);
+//                Label labLayerNo = new Label(12, rowNo, bookPlace[5], format);
+//                Label labRightLibrary;
+//                if (errorLibBookMap.containsKey(tagID)) {
+//                    labRightLibrary = new Label(13, rowNo, errorLibBookMap.get(tagID), format);
+//                } else {
+//                    labRightLibrary = new Label(13, rowNo, "", format);
+//                }
+//                Label[] labels = {labColumnNo, labRowNo, labShelfNo, labLayerNo, labRightLibrary};
+//                try {
+//                    for (Label label : labels) {
+//                        sheetErr.addCell(label);
+//                    }
+//                } catch (WriteException e) {
+//                    LOGGER.error(getTrace(e));
+//                }
+//            }
+//            if (errorLibBookMap.containsKey(tagID)) {
+//                //错误馆藏地的图书
+//                addBookToSheet(sheetErrLib, bookInfo, format);
+//                Label labLibrary = new Label(9, sheetErrLib.getRows() - 1, errorLibBookMap.get(tagID), format);
+//                try {
+//                    sheetErrLib.addCell(labLibrary);
+//                } catch (WriteException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//            if (allStatusAbnormalBookMap.containsKey(tagID)) {
+//                //状态异常图书
+//                String status = allStatusAbnormalBookMap.get(tagID);
+//                addBookToSheet(sheetStatusAbn, bookInfo, format);
+//                Label labStatus = new Label(9, sheetStatusAbn.getRows() - 1, status, format);
+//                try {
+//                    sheetStatusAbn.addCell(labStatus);
+//                } catch (WriteException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//            if (tagAbnormalBookList.contains(tagID)) {
+//                addBookToSheet(sheetTagAbn, bookInfo, format);
+//                Label labTagID = new Label(0, sheetTagAbn.getRows() - 1, tagID, format);
+//                try {
+//                    sheetTagAbn.addCell(labTagID);
+//                } catch (WriteException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//            if (isFirstBook) {
+//                //首书列表
+//                addBookToSheet(sheetFirstBook, bookInfo, format);
+//                isFirstBook = false;
+//            }
+//        }
+//        closeStatement();
+//        closeDBConnection();
+//        countErr = sheetErr.getRows() - 1;
+//        countErrLib = sheetErrLib.getRows() - 1;
+//        countHold = sheetHold.getRows() - 1;
+//        countLoan = sheetLoan.getRows() - 1;
+//        countStatusAbn = sheetStatusAbn.getRows() - 1;
+//        WritableCellFormat formatTitle = new WritableCellFormat();
+//        try {
+//            formatTitle.setAlignment(jxl.format.Alignment.CENTRE);
+//            formatTitle.setBorder(jxl.format.Border.BOTTOM, jxl.format.BorderLineStyle.THICK, jxl.format.Colour.RED);
+//        } catch (WriteException e) {
+//            e.printStackTrace();
+//        }
+//        sheetDashboard.setColumnView(0, 25);
+//        sheetDashboard.setColumnView(1, 15);
+//        try {
+//            sheetDashboard.setRowView(0, 500);
+//        } catch (RowsExceededException e) {
+//            e.printStackTrace();
+//        }
+//
+//        //获取跳过书架
+//        Config.REMAIN_SHELFS_STR = readFileByLine(Config.REMAIN_SHELFS_PATH).get(0);
+//        deleteFile(Config.REMAIN_SHELFS_PATH);
+//        Label labTitle = new Label(0, 0, "盘点统计信息", formatTitle),
+//                labFloorText = new Label(0, 1, "盘点楼层", formatText),
+//                labTotalText = new Label(0, 2, "扫描图书总数", formatText),
+//                labLossText = new Label(0, 3, "丢失图书总数", formatText),
+//                labQueryFailureText = new Label(0, 4, "TAG_ID查询失败", formatText),
+//                labErrorText = new Label(0, 5, "错架图书", formatText),
+//                labErrorLibText = new Label(0, 6, "错馆图书", formatText),
+//                labLoanText = new Label(0, 7, "借出但被扫描到", formatText),
+//                labHoldText = new Label(0, 8, "预约图书", formatText),
+//                labStatusAbnText = new Label(0, 9, "状态异常图书", formatText),
+//                labRemainShelfText = new Label(0, 10, "跳过书架", formatText),
+//                labFloor = new Label(1, 1, FLOOR + "", format),
+//                labTotal = new Label(1, 2, countSuccess + "", format),
+//                labQueryFailure = new Label(1, 4, countNotInDB + "", format),
+//                labError = new Label(1, 5, countErr + "", format),
+//                labErrorLib = new Label(1, 6, countErrLib + "", format),
+//                labLoan = new Label(1, 7, countLoan + "", format),
+//                labHold = new Label(1, 8, countHold + "", format),
+//                labStatusAbn = new Label(1, 9, countStatusAbn + "", format),
+//                labRemainShelf = new Label(1, 10, Config.REMAIN_SHELFS_STR + "", format);
+//        Label labLoss;
+//        if (CHECK_LOSS) {
+//            labLoss = new Label(1, 3, countLoss + "", format);
+//        } else {
+//            labLoss = new Label(1, 3, "请等待周" + Config.LOSS_RESET_WEEK + "的丢失报表", format);
+//        }
+//        Label[] labs = {labTitle, labFloorText, labFloor,
+//                labTotalText, labTotal,
+//                labLossText, labLoss,
+//                labQueryFailureText, labQueryFailure,
+//                labErrorText, labError,
+//                labErrorLibText, labErrorLib,
+//                labLoanText, labLoan,
+//                labHoldText, labHold,
+//                labStatusAbnText, labStatusAbn,
+//                labRemainShelfText, labRemainShelf};
+//        for (Label lab : labs) {
+//            try {
+//                sheetDashboard.addCell(lab);
+//            } catch (WriteException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        try {
+//            sheetDashboard.mergeCells(0, 0, 1, 0);
+//        } catch (WriteException e) {
+//            e.printStackTrace();
+//        }
+//        try {
+//            book.write();
+//            book.close();
+//        } catch (IOException | WriteException e) {
+//            LOGGER.error(getTrace(e));
+//        }
+//        LOGGER.info("报表生成！");
+//        LOGGER.info("错架图书：" + countErr);
+//        LOGGER.info("错馆图书：" + countErrLib);
+//        LOGGER.info("借出图书：" + countLoan);
+//        LOGGER.info("预约图书：" + countHold);
+//    }
 
     /**
      * 生成丢失报表
@@ -1536,7 +1411,7 @@ public class Res2Database {
         }
         for (Map.Entry<String, BookInfo> entry : lossList) {
             BookInfo bookInfo = entry.getValue();
-            String bookID = bookInfo.bookId;
+            String bookID = bookInfo.barcode;
             String bookIndex = bookInfo.bookIndex;
             String bookName = bookInfo.bookName;
 //            if (!allLoanBookMap.containsKey(bookID) && !isForeignBook(bookIndex, bookName)) {
@@ -1601,7 +1476,7 @@ public class Res2Database {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        Config.MAIL.trySendEmail("A" + FLOOR + ",DataSheet", "这是此次盘点生成的报表。" +
+        Config.MAIL.trySendEmail(CuhkszSchool.SCHOOL_CODE + ",A" + FLOOR + ",DataSheet", "这是此次盘点生成的报表。" +
                 "\r\n盘点楼层：A" + FLOOR +
                 "\r\n扫描图书数量：" + countSuccess +
                 "\r\nTAG_ID不在数据库中的数量：" + countNotInDB +
@@ -1637,23 +1512,23 @@ public class Res2Database {
      * @param bookInfos 图书信息数组
      * @return 编码字符串
      */
-    private String locationEncode(String[] bookInfos) {
-        StringBuilder code = new StringBuilder("WL");
-        for (int i = BookFieldName.AREANO.getIndex(); i <= BookFieldName.LAYERNO.getIndex(); i++) {
-            if (i == BookFieldName.FLOORNO.getIndex()) {
-                code.append(bookInfos[i]).append("F");
-            } else if (i == BookFieldName.AREANO.getIndex() || i == BookFieldName.COLUMNNO.getIndex()) {
-                code.append(bookInfos[i]);
-            } else {
-                String tmp = bookInfos[i];
-                if (tmp.length() == 1) {
-                    tmp = "0" + tmp;
-                }
-                code.append(tmp);
-            }
-        }
-        return code.toString();
-    }
+//    private String locationEncode(String[] bookInfos) {
+//        StringBuilder code = new StringBuilder("WL");
+//        for (int i = BookFieldName.AREANO.getIndex(); i <= BookFieldName.LAYERNO.getIndex(); i++) {
+//            if (i == BookFieldName.FLOORNO.getIndex()) {
+//                code.append(bookInfos[i]).append("F");
+//            } else if (i == BookFieldName.AREANO.getIndex() || i == BookFieldName.COLUMNNO.getIndex()) {
+//                code.append(bookInfos[i]);
+//            } else {
+//                String tmp = bookInfos[i];
+//                if (tmp.length() == 1) {
+//                    tmp = "0" + tmp;
+//                }
+//                code.append(tmp);
+//            }
+//        }
+//        return code.toString();
+//    }
 
 
     /**

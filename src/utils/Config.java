@@ -22,6 +22,7 @@ import javax.swing.filechooser.FileSystemView;
  * @version 1.0, 18/09/01
  */
 public class Config {
+    public static final String DATABASE_URL = "jdbc:sqlite:data" + File.separator + "BookInfo.db";
     public static final String PROJECT_PATH = FileSystemView.getFileSystemView().getHomeDirectory().getPath() + "\\Tooker";
     public static final String REPORT_PATH = PROJECT_PATH + "\\Report";
     public static final String REMAIN_SHELFS_PATH = PROJECT_PATH + "\\Config_I&Q\\RemainShelfs.txt";

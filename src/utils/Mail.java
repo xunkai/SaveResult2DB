@@ -256,8 +256,8 @@ public class Mail {
 
     public static void main(String[] args) {
         Config config = new Config();
-        Mail mail = new Mail();
-        mail.sendEmailStandby("Test", "打扰了，这是一封测试邮件，请无视！", "config.xml");
+//        Mail mail = new Mail();
+        Config.MAIL.sendEmailStandby("Test", "打扰了，这是一封测试邮件，请无视！", "config.xml");
     }
 }
 
