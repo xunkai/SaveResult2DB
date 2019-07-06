@@ -20,7 +20,6 @@ import java.util.*;
 import static common.BookLocation.decodeLocation;
 import static common.BookLocation.encodeLocation;
 import static common.CuhkszSchool.getBarcodeFromEpc;
-import static common.DataBaseUtil.*;
 import static utils.Config.CHECK_LOSS;
 import static utils.FileUtil.*;
 import static utils.MyLogger.LOGGER;
@@ -60,11 +59,6 @@ public class Res2Database {
      * 是否第一次盘点
      */
     private static boolean IS_FIRST = false;
-
-    /**
-     * 0 为文件读取,1为数据库
-     */
-    private static int ENABLE_DATABASE = 1;
 
     /**
      * 结果文件解析<br>
@@ -135,17 +129,7 @@ public class Res2Database {
      */
     private LinkedHashMap<String, String> firstBookMap;
     private Map<String, String[]> bookInfosTxt;
-    /**
-     * 对应图书馆数据库字段
-     **/
-    private static final String[] DB_FIELD_NAME;
 
-    static {
-        DB_FIELD_NAME = new String[]{"TAG_ID", "AREANO", "FLOORNO", "COLUMNNO", "ROWNO", "SHELFNO",
-                "LAYERNO", "ORDERNO", "ERRORFLAG", "NUM"};
-    }
-
-    private static final int SHEET_NUM = 10;
     /**
      * 错误等级说明
      */
@@ -159,39 +143,6 @@ public class Res2Database {
             countErrLib = 0, countErr = 0, countLoan = 0, countHold = 0, countStatusAbn = 0;
 
 
-    /**
-     * 书籍信息<br>
-     * 条形码 索书号 书名 区域号 楼层号 列号 排号 层号 架号 顺序号 放错等级 数量
-     */
-    private enum BookFieldName {
-        BOOK_ID("BOOK_ID", 0),
-        BOOK_INDEX("BOOK_INDEX", 1),
-        BOOK_NAME("BOOK_NAME", 2),
-        AREANO("AREANO", 3),
-        FLOORNO("FLOORNO", 4),
-        COLUMNNO("COLUMNNO", 5),
-        ROWNO("ROWNO", 6),
-        SHELFNO("SHELFNO", 7),
-        LAYERNO("LAYERNO", 8),
-        ORDERNO("ORDERNO", 9),
-        ERRORFLAG("ERRORFLAG", 10),
-        NUM("NUM", 11);
-        private String name;
-        private int index;
-
-        BookFieldName(String name, int index) {
-            this.name = name;
-            this.index = index;
-        }
-
-        public int getIndex() {
-            return index;
-        }
-
-        public String getName() {
-            return name;
-        }
-    }
 
     /**
      * @param filePath 结果文件路径
@@ -273,14 +224,6 @@ public class Res2Database {
      */
     private void initFromXml() {
         DB_TXT_PATH = Config.DB_TXT_PATH;
-        ENABLE_DATABASE = Config.FLAG;
-        HOST = Config.HOST;
-        PORT_NO = Config.PORT_NO;
-        DB_MAIN_NAME = Config.DB_NAME;
-        TABLE_MAIN_NAME = Config.TABLE_MAIN_NAME;
-        TABLE_BORROW_NAME = Config.TABLE_BORROW_NAME;
-        USERNAME = Config.USERNAME;
-        PASSWORD = Config.PASSWORD;
         IS_FIRST = Config.IS_FIRST;
         Config.IS_FIRST = false;
         Config.saveXml();
@@ -411,113 +354,6 @@ public class Res2Database {
 //    }
 
     /**
-     * 重置楼层：FLOOR的丢失状态为丢失
-     *
-     * @author Wing
-     * date: 2018/12/5 20:26
-     */
-    private void resetDatabaseLoss() {
-        String[] floorBookIndex = {"A-E", "E-H", "I-M", "N-Z"};
-        LOGGER.info("重置数据中" + FLOOR + "层丢失数据...");
-        createStatement();
-        if (statement == null) {
-            LOGGER.error("statement创建失败！");
-        }
-        try {
-            String sql = "UPDATE " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
-                    " SET IS_LOSS=0 WHERE regexp_like( book_index,'^[" + floorBookIndex[FLOOR - 2] + "]') and CURRENT_LIBRARY= 'WL30'";
-            resultSet = statement.executeQuery(sql);
-            closeStatement();
-            closeDBConnection();
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
-        }
-        LOGGER.info("楼层" + FLOOR + "图书数据库字段IS_LOSS重置成功");
-    }
-
-    /**
-     * 从数据库中获取当前楼层所有图书信息
-     */
-    private void getAllBookInfoFromDB() {
-        boolean success = false;
-        int tryCount = 0;
-        String sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
-                DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
-                " WHERE CURRENT_LIBRARY= 'WL30' and regexp_like( book_index,'^[" + BookIndex.FLOOR_BOOK_INDEX[FLOOR - 2] + "]')";
-        LOGGER.info("连接数据库,获取A区" + FLOOR + "楼图书信息...");
-        while (tryCreateStatement() && !success && tryCount <= 3) {
-            tryCount++;
-            try {
-                resultSet = statement.executeQuery(sql);
-                while (resultSet.next()) {
-                    String tagID = resultSet.getString("TAG_ID");
-                    String bookID = resultSet.getString("BOOK_ID");
-                    String bookIndex = resultSet.getString("BOOK_INDEX");
-                    String bookName = resultSet.getString("BOOK_NAME");
-                    String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
-                    String[] tmp = {bookID, bookIndex, currentLibrary, bookName};
-                    bookInfosTxt.put(tagID, tmp);
-                }
-            } catch (SQLException e) {
-                LOGGER.error(getTrace(e));
-                success = false;
-                LOGGER.warn("数据未成功获取，再次尝试中");
-            }
-            closeResultSet();
-            closeStatement();
-            success = true;
-        }
-        if (FLOOR == 5) {
-            //5楼还需要读取WL32 33
-            success = false;
-            tryCount = 0;
-            sql = "SELECT TAG_ID, BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " +
-                    DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
-                    " WHERE CURRENT_LIBRARY= 'WL32' or CURRENT_LIBRARY= 'WL33'";
-            while (tryCreateStatement() && !success && tryCount <= 3) {
-                tryCount++;
-                try {
-                    resultSet = statement.executeQuery(sql);
-                    while (resultSet.next()) {
-                        String tagID = resultSet.getString("TAG_ID");
-                        String bookID = resultSet.getString("BOOK_ID");
-                        String bookIndex = resultSet.getString("BOOK_INDEX");
-                        String bookName = resultSet.getString("BOOK_NAME");
-                        String currentLibrary = resultSet.getString("CURRENT_LIBRARY");
-                        String[] tmp = {bookID, bookIndex, currentLibrary, bookName};
-                        bookInfosTxt.put(tagID, tmp);
-                    }
-                } catch (SQLException e) {
-                    LOGGER.error(getTrace(e));
-                    success = false;
-                    LOGGER.warn("数据未成功获取，再次尝试中");
-                }
-                closeResultSet();
-                closeStatement();
-                success = true;
-            }
-        }
-        LOGGER.info("获取A区" + FLOOR + "楼图书完毕，图书共" + bookInfosTxt.size() + "册");
-    }
-
-    /**
-     * 从TXT中获取所有图书信息
-     */
-    private void getAllBookInfoFromTxt() {
-        //读取TXT中的图书信息
-        LOGGER.info("读取TXT中的图书信息...");
-        List<String> txtInfos = readFileByLine(DB_TXT_PATH);
-        for (String data : txtInfos) {
-            String[] infos = data.split("\\|");
-            String tagID = infos[0];
-            String[] tmp = Arrays.copyOfRange(infos, 1, 5);
-            bookInfosTxt.put(tagID, tmp);
-        }
-        txtInfos.clear();
-        LOGGER.info("读取成功");
-    }
-
-    /**
      * 处理res文件信息
      */
     private void processRes() {
@@ -631,32 +467,32 @@ public class Res2Database {
     /**
      * 从数据库中获取借出和预约图书列表
      */
-    private void getAllLoanHoldList() {
-        LOGGER.info("连接数据库,获取所有借出预约列表...");
-        if (createStatement()) {
-            try {
-                String sql = "SELECT BOOK_ID,FLAG,patronid FROM " + DB_MAIN_NAME + "." + TABLE_BORROW_NAME;
-                resultSet = statement.executeQuery(sql);
-                while (resultSet.next()) {
-                    String flag = resultSet.getString("FLAG");
-                    String bookID = resultSet.getString("BOOK_ID").replaceAll(" ", "");
-                    String patronID = resultSet.getString("patronid");
-                    if (flag.equals("loan")) {
-                        allLoanBookMap.put(bookID, patronID);
-                    } else if (flag.equals("hold")) {
-                        allHoldBookMap.put(bookID, patronID);
-                    }
-                }
-            } catch (SQLException e) {
-                LOGGER.error(getTrace(e));
-            }
-            closeResultSet();
-            closeStatement();
-        } else {
-            LOGGER.warn("数据库连接失败!!!");
-        }
-        LOGGER.info("借出图书共有" + allLoanBookMap.size() + "册.预约图书共有" + allHoldBookMap.size() + "册");
-    }
+//    private void getAllLoanHoldList() {
+//        LOGGER.info("连接数据库,获取所有借出预约列表...");
+//        if (createStatement()) {
+//            try {
+//                String sql = "SELECT BOOK_ID,FLAG,patronid FROM " + DB_MAIN_NAME + "." + TABLE_BORROW_NAME;
+//                resultSet = statement.executeQuery(sql);
+//                while (resultSet.next()) {
+//                    String flag = resultSet.getString("FLAG");
+//                    String bookID = resultSet.getString("BOOK_ID").replaceAll(" ", "");
+//                    String patronID = resultSet.getString("patronid");
+//                    if (flag.equals("loan")) {
+//                        allLoanBookMap.put(bookID, patronID);
+//                    } else if (flag.equals("hold")) {
+//                        allHoldBookMap.put(bookID, patronID);
+//                    }
+//                }
+//            } catch (SQLException e) {
+//                LOGGER.error(getTrace(e));
+//            }
+//            closeResultSet();
+//            closeStatement();
+//        } else {
+//            LOGGER.warn("数据库连接失败!!!");
+//        }
+//        LOGGER.info("借出图书共有" + allLoanBookMap.size() + "册.预约图书共有" + allHoldBookMap.size() + "册");
+//    }
 
     /**
      * 从数据库中获取丢失列表信息
@@ -690,32 +526,32 @@ public class Res2Database {
      * @author Wing
      * date: 2018/12/6 20:26
      */
-    private void getToBeUpdatedList() {
-        LOGGER.info("连接数据库,获取初始位置未更新列表...");
-        if (createStatement()) {
-            try {
-                String sql = "SELECT TAG_ID,BOOK_INDEX" +
-                        " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
-                        " WHERE CURRENT_LIBRARY= 'WL30' and BOOK_PLACE IS NULL";
-                resultSet = statement.executeQuery(sql);
-                while (resultSet.next()) {
-                    String tagID = resultSet.getString("TAG_ID");
-                    String bookIndex = resultSet.getString("BOOK_INDEX");
-                    if (BookIndex.isFloor(bookIndex, FLOOR)) {
-                        allToBeUpdatedMap.put(tagID, bookIndex);
-                    }
-                }
-            } catch (SQLException e) {
-                LOGGER.error(getTrace(e));
-            }
-            closeResultSet();
-            closeStatement();
-        } else {
-            LOGGER.warn("数据连接失败！！！");
-        }
-        LOGGER.info("获取初始位置未更新列表");
-        LOGGER.info("A" + FLOOR + "初始位置未更新图书共有" + allToBeUpdatedMap.size() + "册.");
-    }
+//    private void getToBeUpdatedList() {
+//        LOGGER.info("连接数据库,获取初始位置未更新列表...");
+//        if (createStatement()) {
+//            try {
+//                String sql = "SELECT TAG_ID,BOOK_INDEX" +
+//                        " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME +
+//                        " WHERE CURRENT_LIBRARY= 'WL30' and BOOK_PLACE IS NULL";
+//                resultSet = statement.executeQuery(sql);
+//                while (resultSet.next()) {
+//                    String tagID = resultSet.getString("TAG_ID");
+//                    String bookIndex = resultSet.getString("BOOK_INDEX");
+//                    if (BookIndex.isFloor(bookIndex, FLOOR)) {
+//                        allToBeUpdatedMap.put(tagID, bookIndex);
+//                    }
+//                }
+//            } catch (SQLException e) {
+//                LOGGER.error(getTrace(e));
+//            }
+//            closeResultSet();
+//            closeStatement();
+//        } else {
+//            LOGGER.warn("数据连接失败！！！");
+//        }
+//        LOGGER.info("获取初始位置未更新列表");
+//        LOGGER.info("A" + FLOOR + "初始位置未更新图书共有" + allToBeUpdatedMap.size() + "册.");
+//    }
 
     /**
      * 获取状态异常列表
@@ -724,37 +560,37 @@ public class Res2Database {
      * @author Wing
      * date: 2018/12/6 20:26
      */
-    private void getStatusAbnormalList() {
-        LOGGER.info("连接数据库,获取所有状态异常列表...");
-        if (createStatement()) {
-            try {
-                String sql = "SELECT TAG_ID,Z30_ITEM_PROCESS_STATUS" +
-                        " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + "," + DB_STATUS_NAME + "." + TABLE_STATUS_NAME +
-                        " WHERE CURRENT_LIBRARY= 'WL30' and trim(" + TABLE_STATUS_NAME + ".Z30_barcode) = " +
-                        TABLE_MAIN_NAME + ".BOOK_ID and z30.Z30_ITEM_PROCESS_STATUS is not null and z30.Z30_ITEM_PROCESS_STATUS <> '  '";
-//            LOGGER.info("SQL:" + sql);
-                resultSet = statement.executeQuery(sql);
-                while (resultSet.next()) {
-                    String tagID = resultSet.getString("TAG_ID");
-                    String status = resultSet.getString("Z30_ITEM_PROCESS_STATUS");
-                    if (status == null) {
-                        status = "null";
-                    }
-                    if (!status.equals("null") && !status.equals("  ") && !status.equals("")) {
-                        allStatusAbnormalBookMap.put(tagID, status);
-//                    LOGGER.info(status);
-                    }
-                }
-            } catch (SQLException e) {
-                LOGGER.error(getTrace(e));
-            }
-            closeResultSet();
-            closeStatement();
-        } else {
-            LOGGER.warn("数据连接失败！！！");
-        }
-        LOGGER.info("状态异常图书共有" + allStatusAbnormalBookMap.size() + "册.");
-    }
+//    private void getStatusAbnormalList() {
+//        LOGGER.info("连接数据库,获取所有状态异常列表...");
+//        if (createStatement()) {
+//            try {
+//                String sql = "SELECT TAG_ID,Z30_ITEM_PROCESS_STATUS" +
+//                        " FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + "," + DB_STATUS_NAME + "." + TABLE_STATUS_NAME +
+//                        " WHERE CURRENT_LIBRARY= 'WL30' and trim(" + TABLE_STATUS_NAME + ".Z30_barcode) = " +
+//                        TABLE_MAIN_NAME + ".BOOK_ID and z30.Z30_ITEM_PROCESS_STATUS is not null and z30.Z30_ITEM_PROCESS_STATUS <> '  '";
+////            LOGGER.info("SQL:" + sql);
+//                resultSet = statement.executeQuery(sql);
+//                while (resultSet.next()) {
+//                    String tagID = resultSet.getString("TAG_ID");
+//                    String status = resultSet.getString("Z30_ITEM_PROCESS_STATUS");
+//                    if (status == null) {
+//                        status = "null";
+//                    }
+//                    if (!status.equals("null") && !status.equals("  ") && !status.equals("")) {
+//                        allStatusAbnormalBookMap.put(tagID, status);
+////                    LOGGER.info(status);
+//                    }
+//                }
+//            } catch (SQLException e) {
+//                LOGGER.error(getTrace(e));
+//            }
+//            closeResultSet();
+//            closeStatement();
+//        } else {
+//            LOGGER.warn("数据连接失败！！！");
+//        }
+//        LOGGER.info("状态异常图书共有" + allStatusAbnormalBookMap.size() + "册.");
+//    }
 
     /**
      * 是否是外文书
@@ -786,35 +622,6 @@ public class Res2Database {
         Config.MAIL.sendEmail(CuhkszSchool.SCHOOL_CODE + ",A" + FLOOR + ",Database finishes update", "数据库更新已完成");
     }
 
-    /**
-     * 通过EPC来获取图书信息
-     *
-     * @param tagID EPC号
-     * @return 书ID 书索引号 馆藏地 书名
-     */
-//    private String[] getBookInfo(String tagID) {
-//        String bookID = null, bookIndex = "", bookName = "", currentLibrary = "";
-//        if (createStatement()) {
-//            try {
-//                String sql = "SELECT BOOK_ID, BOOK_INDEX, BOOK_NAME, CURRENT_LIBRARY FROM " + DB_MAIN_NAME + "." + TABLE_MAIN_NAME + " WHERE TAG_ID " +
-//                        "" + "" + "= '" + tagID + "'";
-//                resultSet = statement.executeQuery(sql);
-//                if (resultSet.next()) {
-//                    bookID = resultSet.getString(BookFieldName.BOOK_ID.getName());
-//                    bookIndex = resultSet.getString(BookFieldName.BOOK_INDEX.getName());
-//                    bookName = resultSet.getString(BookFieldName.BOOK_NAME.getName());
-//                    currentLibrary = resultSet.getString("CURRENT_LIBRARY");
-//                }
-//            } catch (SQLException e) {
-//                LOGGER.error(getTrace(e));
-//            }
-//            closeResultSet();
-//            closeStatement();
-//        } else {
-//            LOGGER.warn("数据连接失败！！！");
-//        }
-//        return new String[]{bookID, bookIndex, currentLibrary, bookName};
-//    }
 
     /**
      * 通过书籍条形码来获取图书状态信息
@@ -822,21 +629,21 @@ public class Res2Database {
      * @param bookID 条形码
      * @return 书籍状态
      */
-    private String getBookStatusByBookID(String bookID) {
-        String status = "";
-        try {
-            String sql = "SELECT Z30_ITEM_PROCESS_STATUS FROM " + DB_STATUS_NAME + "." + TABLE_STATUS_NAME +
-                    " WHERE Z30_BARCODE like '" + bookID + "%'";
-//            LOGGER.info(sql);
-            resultSet = statement.executeQuery(sql);
-            while (resultSet.next()) {
-                status = resultSet.getString("Z30_ITEM_PROCESS_STATUS");
-            }
-        } catch (SQLException e) {
-            LOGGER.error(getTrace(e));
-        }
-        return status;
-    }
+//    private String getBookStatusByBookID(String bookID) {
+//        String status = "";
+//        try {
+//            String sql = "SELECT Z30_ITEM_PROCESS_STATUS FROM " + DB_STATUS_NAME + "." + TABLE_STATUS_NAME +
+//                    " WHERE Z30_BARCODE like '" + bookID + "%'";
+////            LOGGER.info(sql);
+//            resultSet = statement.executeQuery(sql);
+//            while (resultSet.next()) {
+//                status = resultSet.getString("Z30_ITEM_PROCESS_STATUS");
+//            }
+//        } catch (SQLException e) {
+//            LOGGER.error(getTrace(e));
+//        }
+//        return status;
+//    }
 
     /**
      * 通过和首书列表索书号比较，得到正确的图书位置
@@ -1545,7 +1352,7 @@ public class Res2Database {
     public static void main(String[] args) {
         Config config = new Config();
         Res2Database res2Database = new Res2Database("C:\\Users\\Wing\\Desktop\\result\\A2.res");
-        res2Database.getToBeUpdatedList();
+//        res2Database.getToBeUpdatedList();
 
     }
 }

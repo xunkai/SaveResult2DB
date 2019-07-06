@@ -12,13 +12,10 @@ import java.util.List;
 import java.util.Map;
 
 import static common.BookLocation.encodeLocation;
-import static common.BookLoss.MAX_LOSS_DAY;
-import static common.BookLoss.REPORT_DATE;
+import static common.CuhkszSchool.MAX_LOSS_DAY;
 import static common.CuhkszSchool.getBarcodeFromEpc;
 import static common.CuhkszSchool.getBookInfo;
 import static common.CuhkszSchool.isLegalEPC;
-import static common.DataBaseUtil.closeResultSet;
-import static common.DataBaseUtil.createStatement;
 import static utils.DateUtil.getFormatDateString;
 import static utils.DateUtil.getTimeFromString;
 import static utils.MyLogger.LOGGER;

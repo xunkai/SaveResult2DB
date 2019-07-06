@@ -7,7 +7,7 @@ import static utils.MyLogger.getTrace;
 
 /**
  * Created by Wing on 2019/5/24
- * 数据库类
+ * 数据库类，以后主要获取一些图书动态信息，如借出状态等
  * <p>
  * Project: SaveResult2DB
  */
