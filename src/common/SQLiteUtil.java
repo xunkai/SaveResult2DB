@@ -22,10 +22,10 @@ import static utils.MyLogger.LOGGER;
 import static utils.MyLogger.getTrace;
 
 public class SQLiteUtil {
-    public static Connection conn = null;
-    public static Statement stmt = null;
-    public static ResultSet resultSet = null;
-    public static String TABLE_NAME = "bookInfo";
+    private static Connection conn = null;
+    private static Statement stmt = null;
+    private static ResultSet resultSet = null;
+    private static String TABLE_NAME = "bookInfo";
 
     public static boolean createOrConnect() {
         String url = Config.DATABASE_URL;
@@ -37,6 +37,26 @@ public class SQLiteUtil {
             return false;
         }
         createTable();
+        return true;
+    }
+
+    public static boolean closeAutoCommit(){
+        try {
+            conn.setAutoCommit(false);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    public static boolean commit(){
+        try {
+            conn.commit();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
         return true;
     }
 

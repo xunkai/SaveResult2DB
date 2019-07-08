@@ -614,15 +614,21 @@ public class Res2Database {
         LOGGER.info("将更改写回数据库");
         LOGGER.info("连接数据库...");
         int i = 0, countUpdated = 0;
+        long timeStart=System.currentTimeMillis();
         if (IS_FIRST) {
             LOGGER.info("First Scan");
         }
+        SQLiteUtil.createOrConnect();
+        SQLiteUtil.closeAutoCommit();
         for (Map.Entry<String, BookInfo> entry : bookList) {
             BookInfo bookInfo = entry.getValue();
             SQLiteUtil.updateBookLocation(bookInfo);
+            i++;
         }
+        SQLiteUtil.commit();
         SQLiteUtil.closeConnect();
-        LOGGER.info("数据库更新完成!图书初始位置更新" + countUpdated + "册");
+        long timeEnd = System.currentTimeMillis();
+        LOGGER.info("数据库更新完成!图书位置更新" + i + "册;共耗时"+(timeEnd-timeStart)/1000.0+"s");
         Config.MAIL.sendEmail(CuhkszSchool.SCHOOL_CODE + ",A" + FLOOR + ",Database finishes update", "数据库更新已完成");
     }
 
