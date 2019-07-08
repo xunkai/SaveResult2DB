@@ -83,7 +83,6 @@ public class WatchFilePath {
 
                 if (entryCreate.equals(kind.name())) {
                     if (fileName.matches(".*\\.res$")) {
-
                         // 监听到结果文件创建
                         resFile = PATH + File.separator + fileName;
                         floor = fileName.substring(0,2);
@@ -148,6 +147,7 @@ public class WatchFilePath {
 
         deleteFile(Config.REPORT_END_PATH);
 
+        //上线模式
 //        String filepath = Config.DESKTOP_PATH + "\\Tooker\\result";
 //        File file = new File(filepath);
 //        if (!file.exists()) {
@@ -159,7 +159,7 @@ public class WatchFilePath {
         Res2Database res2Database = new Res2Database(
 //                修改这个
 //                Config.DESKTOP_PATH+"\\A4_2018-12-05_22-20-56_full.res");
-                "D:\\Wing\\图书馆项目\\香港中文大学（深圳）\\A4_2019-06-30_15-28-32_full.res");
+                "C:\\Users\\77236\\Desktop\\Tooker\\result\\CUHKSZ\\1\\A4_2019-07-07_17-35-49_full.res");
     }
 }
 

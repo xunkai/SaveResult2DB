@@ -411,6 +411,10 @@ public class Res2Database {
                 LOGGER.info("已处理" + i);
             }
 
+//            if (i % 100 == 0) {
+//                LOGGER.info("已处理" + i+"用时："+(System.currentTimeMillis()-timeStart));
+//            }
+
         }
 
         long timeEnd = System.currentTimeMillis();
@@ -1347,12 +1351,5 @@ public class Res2Database {
     private boolean isEpc(String epc) {
         /*之后可采用正则表达式判断*/
         return epc.length() >= 20;
-    }
-
-    public static void main(String[] args) {
-        Config config = new Config();
-        Res2Database res2Database = new Res2Database("C:\\Users\\Wing\\Desktop\\result\\A2.res");
-//        res2Database.getToBeUpdatedList();
-
     }
 }
